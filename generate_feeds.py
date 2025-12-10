@@ -11,8 +11,8 @@ CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
-# Volvemos a una instancia clásica. 
-# Si esta falla, prueba: https://vid.uff.dog o https://yewtu.be o https://inv.nadeko.net
+# Instancia para generar el M3U8.
+# Si inv.nadeko.net falla, prueba: https://inv.tux.pizza o https://vid.uff.dog o https://inv.nadeko.net
 INVIDIOUS_DOMAIN = "https://yewtu.be"
 # ---------------------
 
@@ -39,10 +39,7 @@ def get_channel_identifier(url):
     return f"{identifier}{suffix}"
 
 def get_latest_videos_flat(channel_url):
-    """
-    Modo Flat Dump (Seguro).
-    Sin cookies, sin peticiones API, sin trucos raros en la URL.
-    """
+    """Modo Flat Dump (Seguro y Rápido)."""
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
@@ -70,16 +67,15 @@ def get_latest_videos_flat(channel_url):
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # --- URL LIMPIA (Lo que pediste) ---
-            # Quitamos 'local=true' y '#.mp4'.
-            # Esto hará una redirección 302 estándar a Google Video.
-            # VLC maneja esto perfectamente.
-            proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18"
+            # --- MODO VLC (M3U8) ---
+            # Construimos un enlace al manifiesto HLS de Invidious.
+            # Esto devuelve un archivo .m3u8 real que VLC adora.
+            proxy_url = f"{INVIDIOUS_DOMAIN}/api/manifest/hls_variant/{vid_id}.m3u8?subs=0"
             
             videos_found.append({
                 'id': vid_id,
                 'title': title,
-                'description': "Video vía Invidious.",
+                'description': "Streaming HLS vía Invidious.",
                 'upload_date': entry.get('upload_date'),
                 'duration': entry.get('duration'),
                 'stream_url': proxy_url,
@@ -101,7 +97,7 @@ def generate_rss_xml(channel_id, episodes):
     latest = episodes[0]
     suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
     fg.title(f"{latest['channel_title']}{suffix}")
-    fg.description(f"Feed Invidious: {latest['channel_title']}")
+    fg.description(f"Feed VLC: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -118,10 +114,11 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
-        # Mantenemos video/mp4 porque itag 18 ES video
-        fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
+        # --- TIPO MIME CORRECTO PARA M3U8 ---
+        # Usamos application/x-mpegURL, que es el estándar para listas m3u8
+        fe.enclosure(url=ep['stream_url'], length='0', type='application/x-mpegURL')
         
-        # Mantenemos la corrección de seguridad para la duración (para que no falle el script)
+        # Corrección de duración
         duration_raw = ep.get('duration')
         if duration_raw:
             try:
@@ -160,10 +157,9 @@ def main():
         print(f"   -> Encontrados {len(latest_videos)} videos.")
 
         if channel_id_safe not in history: history[channel_id_safe] = []
-        current_episodes = history[channel_id_safe]
         
-        # Siempre actualizamos para refrescar las URLs por si cambiamos de dominio
-        print(f"✨ Actualizando feed...")
+        # Refrescamos siempre
+        print(f"✨ Actualizando enlaces M3U8...")
         history[channel_id_safe] = latest_videos
         changes_made = True
 
