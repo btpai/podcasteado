@@ -10,7 +10,50 @@ CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 10  # Cuántos episodios mantener en el feed
 # ---------------------
+def get_latest_video_info(channel_url):
+    """Obtiene info del último video usando yt-dlp simulando un navegador."""
+    try:
+        command = [
+            'yt-dlp', 
+            '--playlist-end', '1', 
+            '--skip-download', 
+            '-f', 'bestaudio[ext=m4a]/bestaudio/best',
+            '-j',
+            # --- NOVEDAD: Falsificar navegador para evitar bloqueo de bots ---
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            # -----------------------------------------------------------------
+            channel_url
+        ]
+        
+        # Capturamos stdout y stderr para poder ver el error real si falla
+        result = subprocess.run(command, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"⚠️ Error en yt-dlp para {channel_url}:")
+            print(f"   Detalle del error: {result.stderr}")
+            return None
 
+        # Procesar el JSON
+        output_lines = result.stdout.strip().split('\n')
+        if not output_lines:
+            print(f"⚠️ yt-dlp no devolvió datos para {channel_url}")
+            return None
+            
+        video_data = json.loads(output_lines[-1])
+        
+        return {
+            'id': video_data.get('id'),
+            'title': video_data.get('title'),
+            'description': video_data.get('description'),
+            'upload_date': video_data.get('upload_date'),
+            'duration': video_data.get('duration'),
+            'stream_url': video_data.get('url'),
+            'webpage_url': video_data.get('webpage_url'),
+            'channel_title': video_data.get('uploader')
+        }
+    except Exception as e:
+        print(f"❌ Error crítico procesando {channel_url}: {e}")
+        return None
 def load_history():
     if os.path.exists(HISTORY_FILE):
         try:
