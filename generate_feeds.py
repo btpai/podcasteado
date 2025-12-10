@@ -11,12 +11,13 @@ CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
-# Usamos el Proxy de Piped (Kavin Rocks). Es muy rápido y estable.
-# Si falla, otras opciones: 
-# https://pipedproxy.adminforge.de
-# https://pp.drg.li
-PIPED_PROXY = "https://pipedproxy.kavin.rocks"
-PIPED_API_HOST = "pipedapi.kavin.rocks"
+# VOLVEMOS A INVIDIOUS (Mejor para VLC que Piped)
+# Usamos el servidor principal que suele ser el más compatible con M3U8
+INVIDIOUS_DOMAIN = "https://yewtu.be"
+
+# Si yewtu.be te falla algún día, cambia la línea de arriba por:
+# "https://inv.nadeko.net"
+# "https://invidious.drg.li"
 # ---------------------
 
 def load_history():
@@ -43,9 +44,8 @@ def get_channel_identifier(url):
 
 def get_latest_videos_flat(channel_url):
     """
-    Modo Flat Dump.
-    Usa yt-dlp solo para leer el índice (seguro).
-    Genera enlaces de PIPED PROXY.
+    Modo Flat Dump (Seguro).
+    Genera enlaces M3U8 de Invidious para VLC.
     """
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
@@ -74,15 +74,15 @@ def get_latest_videos_flat(channel_url):
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # --- MODO PIPED PROXY (M3U8) ---
-            # Construimos el enlace al manifiesto HLS de Piped.
-            # Esto es MUCHO más estable que Invidious para VLC.
-            proxy_url = f"{PIPED_PROXY}/hls/manifest/{vid_id}.m3u8?host={PIPED_API_HOST}"
+            # --- MODO VLC / M3U8 ---
+            # Enlace al manifiesto de streaming de Invidious.
+            # ?subs=0 quita subtítulos para evitar conflictos.
+            proxy_url = f"{INVIDIOUS_DOMAIN}/api/manifest/hls_variant/{vid_id}.m3u8?subs=0"
             
             videos_found.append({
                 'id': vid_id,
                 'title': title,
-                'description': "Streaming HLS vía Piped.",
+                'description': "Streaming HLS vía Invidious.",
                 'upload_date': entry.get('upload_date'),
                 'duration': entry.get('duration'),
                 'stream_url': proxy_url,
@@ -105,7 +105,7 @@ def generate_rss_xml(channel_id, episodes):
     
     suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
     fg.title(f"{latest['channel_title']}{suffix}")
-    fg.description(f"Feed VLC (Piped): {latest['channel_title']}")
+    fg.description(f"Feed VLC (Invidious): {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -122,10 +122,10 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
-        # Tipo MIME para VLC (M3U8)
+        # Tipo MIME M3U8 (Standard para VLC)
         fe.enclosure(url=ep['stream_url'], length='0', type='application/x-mpegURL')
         
-        # Corrección de duración (protección anti-fallos)
+        # Corrección de duración (Evita el fallo del script)
         duration_raw = ep.get('duration')
         if duration_raw:
             try:
@@ -164,16 +164,11 @@ def main():
         print(f"   -> Encontrados {len(latest_videos)} videos.")
 
         if channel_id_safe not in history: history[channel_id_safe] = []
-        current_episodes = history[channel_id_safe]
         
-        if not current_episodes or current_episodes[0]['id'] != latest_videos[0]['id']:
-            print(f"✨ Nuevo episodio: {latest_videos[0]['title']}")
-            history[channel_id_safe] = latest_videos
-            changes_made = True
-        else:
-            print("🔄 Refrescando URLs Piped...")
-            history[channel_id_safe] = latest_videos
-            changes_made = True
+        # Refrescamos siempre para asegurar que la URL sea la correcta
+        print(f"✨ Actualizando enlaces Invidious...")
+        history[channel_id_safe] = latest_videos
+        changes_made = True
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
