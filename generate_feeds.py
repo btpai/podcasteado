@@ -2,7 +2,6 @@ import subprocess
 import json
 import os
 import time
-import urllib.request
 from feedgen.feed import FeedGenerator
 from datetime import datetime
 
@@ -10,10 +9,11 @@ from datetime import datetime
 OUTPUT_DIR = 'feeds'
 CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
-MAX_EPISODES = 10
+MAX_EPISODES = 15 # Aumentamos un poco para tener margen
 
-# Usamos la API de Invidious para obtener títulos sin tocar YouTube
-INVIDIOUS_INSTANCE = "https://yewtu.be"
+# Instancia Invidious para la reproducción (Tu móvil se conectará aquí).
+# Usamos inv.tux.pizza que suele ser robusta, o puedes volver a yewtu.be
+INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
 # ---------------------
 
 def load_history():
@@ -38,81 +38,81 @@ def get_channel_identifier(url):
     identifier = clean_url.split('/')[-1].replace('@', '').replace('channel', '')
     return f"{identifier}{suffix}"
 
-def get_candidate_ids(channel_url):
-    """Obtiene los IDs usando yt-dlp en modo 'flat' (menos bloqueos)."""
-    print(f"🔎 Analizando canal: {channel_url}")
+def get_latest_videos_flat(channel_url):
+    """
+    Obtiene Título e ID directamente del índice del canal.
+    NO hace peticiones individuales a los videos.
+    NO conecta con APIs externas.
+    """
+    print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
-        '--flat-playlist',
-        '--playlist-end', '5',
-        '--print', 'id',
+        '--dump-single-json',  # Devuelve todo en un solo JSON gigante
+        '--flat-playlist',     # CRUCIAL: No analiza los videos, solo lista
+        '--playlist-end', '10', # Leemos los últimos 10
         '--no-check-certificate',
         '--ignore-errors',
         channel_url
     ]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True)
-        return [line.strip() for line in result.stdout.split('\n') if line.strip()]
-    except:
-        return []
-
-def get_video_metadata_via_api(video_id):
-    """
-    Obtiene los detalles consultando la API de Invidious.
-    ESTO EVITA EL BLOQUEO DE YOUTUBE A GITHUB.
-    """
-    api_url = f"{INVIDIOUS_INSTANCE}/api/v1/videos/{video_id}"
     
     try:
-        # Hacemos una petición HTTP a Invidious
-        req = urllib.request.Request(
-            api_url, 
-            headers={'User-Agent': 'Mozilla/5.0'} # Cortesía para no parecer un bot malo
-        )
+        # Ejecutamos yt-dlp
+        result = subprocess.run(command, capture_output=True, text=True)
         
-        with urllib.request.urlopen(req) as response:
-            if response.status != 200:
-                print(f"   ⚠️ API Invidious error {response.status}")
-                return None
-            
-            data = json.loads(response.read().decode())
-            
-            # Si Invidious dice que hay error, salimos
-            if 'error' in data:
-                return None
+        if result.returncode != 0:
+            print(f"⚠️ Error leyendo índice. Code: {result.returncode}")
+            return []
 
-            # Construimos el enlace permanente de video (MP4 360p - itag 18)
-            # Este enlace funciona siempre, no caduca y no requiere IP específica.
-            proxy_url = f"{INVIDIOUS_INSTANCE}/latest_version?id={video_id}&itag=18"
+        data = json.loads(result.stdout)
+        
+        # En modo flat, 'entries' tiene la lista de videos
+        if 'entries' not in data:
+            return []
+            
+        videos_found = []
+        
+        for entry in data['entries']:
+            # En modo flat, entry tiene 'id', 'title', 'url' pero no 'description' completa
+            vid_id = entry.get('id')
+            title = entry.get('title')
+            
+            # Filtramos videos privados o borrados que a veces salen sin título
+            if not vid_id or not title or title == '[Private video]':
+                continue
 
-            return {
-                'id': video_id,
-                'title': data.get('title'),
-                'description': data.get('description') or "Sin descripción",
-                'upload_date': str(data.get('published')), # Timestamp o string
-                'duration': data.get('lengthSeconds'),
+            # --- CONSTRUCCIÓN CIEGA DEL ENLACE ---
+            # No comprobamos si funciona. Asumimos que sí.
+            # AntennaPod hará el trabajo duro.
+            proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18"
+            
+            videos_found.append({
+                'id': vid_id,
+                'title': title,
+                'description': "Descripción no disponible en modo rápido.", # yt-dlp flat no da descripción
+                'upload_date': entry.get('upload_date'), # A veces viene, a veces no
+                'duration': entry.get('duration'), # A veces viene
                 'stream_url': proxy_url,
-                'webpage_url': f"https://www.youtube.com/watch?v={video_id}",
-                'channel_title': data.get('author')
-            }
+                'webpage_url': f"https://www.youtube.com/watch?v={vid_id}",
+                'channel_title': data.get('uploader') or data.get('title') or "Canal"
+            })
             
+        return videos_found
+
     except Exception as e:
-        print(f"   ❌ Error conectando con Invidious API: {e}")
-        return None
+        print(f"❌ Error crítico procesando canal: {e}")
+        return []
 
 def generate_rss_xml(channel_id, episodes):
     if not episodes: return
     fg = FeedGenerator()
     fg.load_extension('podcast')
-    latest = episodes[0] 
-    fg.id(channel_id)
+    
+    # Datos del canal (usamos el del video más nuevo)
+    latest = episodes[0]
     
     suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
-    # Aseguramos que haya un título de canal
-    c_title = latest.get('channel_title') or channel_id
-    
-    fg.title(f"{c_title}{suffix}")
-    fg.description(f"Feed Invidious: {c_title}")
+    fg.title(f"{latest['channel_title']}{suffix}")
+    fg.description(f"Feed generado para: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -123,20 +123,19 @@ def generate_rss_xml(channel_id, episodes):
         fe.link(href=ep['webpage_url'])
         fe.description(ep['description'])
         
-        # Invidious devuelve la fecha como timestamp (int) a veces
         try:
             if ep.get('upload_date'):
-                # Si es un número (timestamp UNIX)
-                if isinstance(ep['upload_date'], int):
-                    date_obj = datetime.fromtimestamp(ep['upload_date'])
-                else:
-                    # Intento genérico de parseo si viene como string
-                    date_obj = datetime.now() 
-                
+                # yt-dlp flat suele devolver string 'YYYYMMDD' si está disponible
+                date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
+            else:
+                # Si no hay fecha, usamos la hora actual para que no falle, 
+                # o no ponemos nada. Poner "ahora" asegura que aparezca arriba.
+                # fe.pubDate(datetime.now().replace(tzinfo=datetime.now().astimezone().tzinfo))
+                pass
         except: pass
 
-        # Enlace de Video MP4 (AntennaPod lo reproducirá con video)
+        # Enlace VIDEO MP4 permanente vía Invidious
         fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
         
         if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
@@ -162,42 +161,28 @@ def main():
         time.sleep(2)
         channel_id_safe = get_channel_identifier(url)
         
-        # 1. Obtener IDs (yt-dlp flat playlist suele funcionar bien)
-        candidate_ids = get_candidate_ids(url)
-        if not candidate_ids: continue
-
-        # 2. Obtener datos via API
-        valid_video = None
-        for vid in candidate_ids:
-            print(f"Consultando API para ID: {vid}...")
-            details = get_video_metadata_via_api(vid)
-            
-            if details and details.get('title'):
-                print(f"   -> OK: {details['title'][:30]}...")
-                valid_video = details
-                break
-            else:
-                print("   -> Fallo en API. Probando siguiente...")
-                time.sleep(1) # Pausa para no saturar la API
-
-        if not valid_video: 
-            print("❌ No se pudo obtener información de ningún video.")
+        # 1. Obtenemos lista de videos (Modo Flat)
+        latest_videos = get_latest_videos_flat(url)
+        
+        if not latest_videos:
+            print("❌ No se encontraron videos.")
             continue
 
-        # 3. Guardar
+        print(f"   -> Encontrados {len(latest_videos)} videos en el índice.")
+
+        # 2. Actualizar Historial
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
-        # Comparamos IDs
-        is_new = not current_episodes or current_episodes[0]['id'] != valid_video['id']
-
-        if is_new:
-            print("✨ Nuevo episodio añadido.")
-            current_episodes.insert(0, valid_video)
-            history[channel_id_safe] = current_episodes[:MAX_EPISODES]
+        # Comparamos el ID del más nuevo
+        if not current_episodes or current_episodes[0]['id'] != latest_videos[0]['id']:
+            print(f"✨ Nuevo episodio: {latest_videos[0]['title']}")
+            # Reemplazamos la lista con los nuevos datos frescos del índice
+            # Esto corrige enlaces o títulos si cambiaron, y añade los nuevos
+            history[channel_id_safe] = latest_videos
             changes_made = True
         else:
-            print("🔄 Episodio ya existente.")
+            print("🔄 Sin novedades (ID coincide).")
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
