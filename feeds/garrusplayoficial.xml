@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>GarrusPlay</title>
+    <link>https://www.youtube.com/watch?v=LsY2qXUOSVg</link>
+    <description>Feed VLC (Invidious): GarrusPlay</description>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <language>es</language>
+    <lastBuildDate>Wed, 10 Dec 2025 17:14:39 +0000</lastBuildDate>
+    <item>
+      <title>PS5 podría tener un launcher para PC mientras Insomniac está condenada a hacer juegos de Marvel</title>
+      <link>https://www.youtube.com/watch?v=1Fxk01L8mW4</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">1Fxk01L8mW4</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/1Fxk01L8mW4.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>875</itunes:duration>
+    </item>
+    <item>
+      <title>¿Es Steam un MONOPOLIO?</title>
+      <link>https://www.youtube.com/watch?v=lPh1FL_c4KQ</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">lPh1FL_c4KQ</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/lPh1FL_c4KQ.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>1041</itunes:duration>
+    </item>
+    <item>
+      <title>Mi opinión de la "consola" de STEAM, el nuevo mando, Steam Frame y la Steam DECK 2</title>
+      <link>https://www.youtube.com/watch?v=n4OXGtKOdPA</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">n4OXGtKOdPA</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/n4OXGtKOdPA.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>1090</itunes:duration>
+    </item>
+    <item>
+      <title>Los nuevos juegos de Horizon y Ratchet &amp; Clank... para móviles xd</title>
+      <link>https://www.youtube.com/watch?v=kwMcTEHNP1Q</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">kwMcTEHNP1Q</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/kwMcTEHNP1Q.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>665</itunes:duration>
+    </item>
+    <item>
+      <title>Mis votos al GOTY y los The Game Awards 2025</title>
+      <link>https://www.youtube.com/watch?v=BV0NlCva3YU</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">BV0NlCva3YU</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/BV0NlCva3YU.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>1328</itunes:duration>
+    </item>
+    <item>
+      <title>Mi opinion de ARC Raiders</title>
+      <link>https://www.youtube.com/watch?v=EhYnijMzPLA</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">EhYnijMzPLA</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/EhYnijMzPLA.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>1083</itunes:duration>
+    </item>
+    <item>
+      <title>Cyberpunk 2077 vende 35 millones y Cyberpunk 2 se va a 2028 como MINIMO</title>
+      <link>https://www.youtube.com/watch?v=xV02CaPL1GQ</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">xV02CaPL1GQ</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/xV02CaPL1GQ.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>792</itunes:duration>
+    </item>
+    <item>
+      <title>Oficialmente Arabia compra EA y esconde contratos MILLONARIOS en USA</title>
+      <link>https://www.youtube.com/watch?v=Cbk_K96klJY</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">Cbk_K96klJY</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/Cbk_K96klJY.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>832</itunes:duration>
+    </item>
+    <item>
+      <title>No espero NADA BUENO de la compra de Warner Bros por Netflix</title>
+      <link>https://www.youtube.com/watch?v=3LdfqYY5abw</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">3LdfqYY5abw</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/3LdfqYY5abw.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>995</itunes:duration>
+    </item>
+    <item>
+      <title>GTA 6 saldrá ANTES que Fallout 5 y The Elder Scrolls 6, dice Todd Howard sin reirse ni nada</title>
+      <link>https://www.youtube.com/watch?v=LsY2qXUOSVg</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">LsY2qXUOSVg</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/LsY2qXUOSVg.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>643</itunes:duration>
+    </item>
+  </channel>
+</rss>
