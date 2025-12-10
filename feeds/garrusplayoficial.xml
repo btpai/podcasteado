@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>GarrusPlay (Audio)</title>
+    <link>https://www.youtube.com/watch?v=LsY2qXUOSVg</link>
+    <description>Podcast generado de: GarrusPlay</description>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <language>es</language>
+    <lastBuildDate>Wed, 10 Dec 2025 14:06:26 +0000</lastBuildDate>
+    <item>
+      <title>GTA 6 saldrá ANTES que Fallout 5 y The Elder Scrolls 6, dice Todd Howard sin reirse ni nada</title>
+      <link>https://www.youtube.com/watch?v=LsY2qXUOSVg</link>
+      <description>Una obra de arte sobre cómo sacar un artículo y yo un vídeo de un clip de 30 segundos de Todd Howard diciendo que GTA 6 saldrá antes que Fallout 5 y The Elder Scrolls 6. Y lo dice sin descojonarse por el camino, es un grande
+
+Más y mejores videos en el canal principal: https://www.youtube.com/@SrGarrus</description>
+      <guid isPermaLink="false">LsY2qXUOSVg</guid>
+      <enclosure url="https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1765397185/ei/YX45acimLKXI-coPo-Pu4QY/ip/64.236.140.167/id/2ec636a9750e4958/itag/301/source/youtube/requiressl/yes/ratebypass/yes/pfa/1/sgoap/clen%3D10394986%3Bdur%3D642.217%3Bgir%3Dyes%3Bitag%3D140%3Blmt%3D1765135775854768/sgovp/clen%3D109548520%3Bdur%3D642.158%3Bgir%3Dyes%3Bitag%3D299%3Blmt%3D1765142920787452/rqh/1/hls_chunk_host/rr1---sn-vgqsknzr.googlevideo.com/xpc/EgVo2aDSNQ%3D%3D/cps/10/met/1765375585,/mh/rR/mm/31,26/mn/sn-vgqsknzr,sn-p5qddn7d/ms/au,onr/mv/m/mvi/1/pl/16/rms/au,au/initcwndbps/5120000/siu/1/bui/AYUSA3AGcXfsgweFIaPRSTfQCm2tsDuCyJIhCV2UsnUTXHC2OuXDZBrtLdH2SYXu9MYxUO2nIA/spc/wH4Qq7PszqFZGmaz05dw0emQIm-tQmEh4qB6UB1adw_B2nMl09eVB7k5_5ZOTBRMWuI3Rn9oHxSUJSS5uoFILV5j/vprv/1/playlist_type/CLEAN/dover/11/txp/5535534/mt/1765375282/fvip/2/keepalive/yes/fexp/51355912,51552689,51565116,51565682,51580968/sparams/expire,ei,ip,id,itag,source,requiressl,ratebypass,pfa,sgoap,sgovp,rqh,xpc,siu,bui,spc,vprv,playlist_type/sig/AJfQdSswRQIgUVdVl7oHXxl2jIdPze6bZgRFsOslYMAU96yhx2Bwj2cCIQCU0jyoMAjqCxeBwAy75-zi6O90vKD1hYJoOPx7MpURAA%3D%3D/lsparams/hls_chunk_host,cps,met,mh,mm,mn,ms,mv,mvi,pl,rms,initcwndbps/lsig/APaTxxMwRQIhAJEXuS3V44YL7dUiCXaw_3TAInDbgB5k12y1r_LIZ0AIAiB4ZpYMuhg9nw0fWCwUBKtFO32AcFArHpWEb7hyuZ99iQ%3D%3D/playlist/index.m3u8" length="0" type="audio/mp4"/>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <itunes:duration>642</itunes:duration>
+    </item>
+  </channel>
+</rss>
