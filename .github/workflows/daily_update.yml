@@ -2,7 +2,7 @@ name: Actualizador Diario de Podcasts
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Ejecuta a las 8:00 AM UTC
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
 permissions:
@@ -23,8 +23,8 @@ jobs:
       - name: Instalar herramientas
         run: |
           python -m pip install --upgrade pip
+          # Instalamos yt-dlp master para evitar errores de lectura
           pip install https://github.com/yt-dlp/yt-dlp/archive/master.zip
-          pip install feedgen
 
       - name: Ejecutar script de generación
         run: python generate_feeds.py
@@ -32,6 +32,7 @@ jobs:
       - name: Guardar cambios
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🎙️ Actualización automática (Método Invidious)"
-          file_pattern: 'feeds/*.xml history.json'
+          commit_message: "📝 Actualización de lista M3U"
+          # CAMBIO CLAVE: Ahora aceptamos todo lo que esté en feeds/
+          file_pattern: 'feeds/*'
           branch: main
