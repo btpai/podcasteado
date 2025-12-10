@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>midulive</title>
+    <link>https://www.youtube.com/watch?v=vM8jtdkXe4s</link>
+    <description>Feed VLC: midulive</description>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <language>es</language>
+    <lastBuildDate>Wed, 10 Dec 2025 16:10:24 +0000</lastBuildDate>
+    <item>
+      <title>Google Gemini Pro is BRUTAL</title>
+      <link>https://www.youtube.com/watch?v=rPazW56I3Wo</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">rPazW56I3Wo</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/rPazW56I3Wo.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>1610</itunes:duration>
+    </item>
+    <item>
+      <title>NVIDIA is in trouble</title>
+      <link>https://www.youtube.com/watch?v=dNa5afJALSo</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">dNa5afJALSo</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/dNa5afJALSo.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>615</itunes:duration>
+    </item>
+    <item>
+      <title>Thanks, Google...</title>
+      <link>https://www.youtube.com/watch?v=Lq6KtasRhLQ</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">Lq6KtasRhLQ</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/Lq6KtasRhLQ.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>471</itunes:duration>
+    </item>
+    <item>
+      <title>The security of governments is...</title>
+      <link>https://www.youtube.com/watch?v=4t3b_7VJoBg</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">4t3b_7VJoBg</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/4t3b_7VJoBg.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>640</itunes:duration>
+    </item>
+    <item>
+      <title>Is this the end of Javier Tebas?</title>
+      <link>https://www.youtube.com/watch?v=QF7SRLgn_Bw</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">QF7SRLgn_Bw</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/QF7SRLgn_Bw.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>512</itunes:duration>
+    </item>
+    <item>
+      <title>The RAM Apocalypse</title>
+      <link>https://www.youtube.com/watch?v=vH8_dG9XUNY</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">vH8_dG9XUNY</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/vH8_dG9XUNY.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>609</itunes:duration>
+    </item>
+    <item>
+      <title>Google is no match for DeepSeek</title>
+      <link>https://www.youtube.com/watch?v=MySUxOP-gY4</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">MySUxOP-gY4</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/MySUxOP-gY4.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>379</itunes:duration>
+    </item>
+    <item>
+      <title>Nvidia can't compete against Google</title>
+      <link>https://www.youtube.com/watch?v=TTOvfDsZucI</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">TTOvfDsZucI</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/TTOvfDsZucI.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>473</itunes:duration>
+    </item>
+    <item>
+      <title>The Windows 11 Explorer thing is WILD</title>
+      <link>https://www.youtube.com/watch?v=1VYmgHWf1Sg</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">1VYmgHWf1Sg</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/1VYmgHWf1Sg.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>261</itunes:duration>
+    </item>
+    <item>
+      <title>The current state of the RAM</title>
+      <link>https://www.youtube.com/watch?v=vM8jtdkXe4s</link>
+      <description>Streaming HLS vía Invidious.</description>
+      <guid isPermaLink="false">vM8jtdkXe4s</guid>
+      <enclosure url="https://yewtu.be/api/manifest/hls_variant/vM8jtdkXe4s.m3u8?subs=0" length="0" type="application/x-mpegURL"/>
+      <itunes:duration>561</itunes:duration>
+    </item>
+  </channel>
+</rss>
