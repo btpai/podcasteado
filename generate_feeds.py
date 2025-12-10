@@ -125,15 +125,25 @@ def get_video_details(video_id):
         return None
 
 def generate_rss_xml(channel_id, episodes):
-    if not episodes: return
+    """Genera el XML cambiando el título si es un feed de Directos."""
+    if not episodes:
+        return
 
     fg = FeedGenerator()
     fg.load_extension('podcast')
     
     latest = episodes[0] 
     fg.id(channel_id)
-    fg.title(f"{latest['channel_title']} (Audio)")
-    fg.description(f"Podcast de: {latest['channel_title']}")
+    
+    # --- LÓGICA DE TÍTULO DINÁMICO ---
+    if channel_id.endswith('_Directos'):
+        podcast_title = f"{latest['channel_title']} (Directos)"
+    else:
+        podcast_title = f"{latest['channel_title']} (Audio)"
+    # ---------------------------------
+
+    fg.title(podcast_title)
+    fg.description(f"Podcast generado de: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -148,17 +158,20 @@ def generate_rss_xml(channel_id, episodes):
             if ep.get('upload_date'):
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
                 fe.pubdate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
-        except: pass
+        except:
+            pass
 
         fe.enclosure(url=ep['stream_url'], length='0', type='audio/mp4')
-        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
+        if ep.get('duration'):
+            fe.podcast.itunes_duration(ep['duration'])
 
-    if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
-    
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+        
     filename = f'{channel_id}.xml'
     fg.rss_file(os.path.join(OUTPUT_DIR, filename), pretty=True)
     print(f"✅ Feed generado: {filename}")
-
+    
 def main():
     if not os.path.exists(CHANNELS_FILE):
         print(f"Falta {CHANNELS_FILE}")
