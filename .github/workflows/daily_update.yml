@@ -1,0 +1,38 @@
+name: Actualizador Diario de Podcasts
+
+on:
+  schedule:
+    # Se ejecuta a las 08:00 AM UTC todos los días
+    - cron: '0 8 * * *'
+  # Permite ejecutarlo manualmente si quieres forzar una actualización
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-podcasts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar herramientas
+        run: |
+          python -m pip install --upgrade pip
+          pip install yt-dlp feedgen
+
+      - name: Ejecutar script de generación
+        run: python generate_feeds.py
+
+      - name: Guardar cambios (Feeds y Historial)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🎙️ Nuevo episodio detectado - Actualización automática"
+          file_pattern: 'feeds/*.xml history.json'
+          branch: main
