@@ -123,7 +123,7 @@ def generate_rss_xml(channel_id, episodes):
     if channel_id.endswith('_Directos'):
         podcast_title = f"{latest['channel_title']} (Directos)"
     else:
-        podcast_title = f"{latest['channel_title']} (Audio)"
+        podcast_title = f"{latest['channel_title']}"
 
     fg.title(podcast_title)
     fg.description(f"Podcast generado de: {latest['channel_title']}")
@@ -143,7 +143,7 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
-        fe.enclosure(url=ep['stream_url'], length='0', type='audio/mp4')
+        fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
         if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
