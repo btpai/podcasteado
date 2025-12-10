@@ -1,7 +1,7 @@
 import subprocess
 import json
 import os
-import time  # <--- NUEVO: Para poder pausar el script
+import time
 from feedgen.feed import FeedGenerator
 from datetime import datetime
 
@@ -9,7 +9,7 @@ from datetime import datetime
 OUTPUT_DIR = 'feeds'
 CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
-MAX_EPISODES = 10  # Cuántos episodios mantener en el feed
+MAX_EPISODES = 10
 # ---------------------
 
 def load_history():
@@ -26,10 +26,8 @@ def save_history(history):
         json.dump(history, f, indent=4)
 
 def get_channel_identifier(url):
-    """Genera ID del canal y añade '_Directos' si es la pestaña de streams."""
     clean_url = url.strip().rstrip('/')
     suffix = ""
-    
     if clean_url.endswith('/streams'):
         clean_url = clean_url[:-8]
         suffix = "_Directos"
@@ -38,38 +36,33 @@ def get_channel_identifier(url):
     
     identifier = clean_url.split('/')[-1]
     identifier = identifier.replace('@', '').replace('channel', '')
-    
     return f"{identifier}{suffix}"
 
-def get_latest_video_id(channel_url):
-    """PASO 1: Obtener solo el ID del video más reciente."""
-    print(f"🔎 Buscando ID del último video en: {channel_url}")
+def get_candidate_ids(channel_url):
+    """Obtiene los IDs de los últimos 5 videos para probar cuál funciona."""
+    print(f"🔎 Analizando lista de videos en: {channel_url}")
     command = [
         'yt-dlp',
         '--flat-playlist',
-        '--playlist-end', '1',
+        '--playlist-end', '5', # Miramos los últimos 5 por si hay videos de miembros
         '--print', 'id',
         '--no-check-certificate',
         '--ignore-errors',
-        '--cookies', 'cookies.txt', # Usamos cookies también aquí por si acaso
+        '--cookies', 'cookies.txt',
         channel_url
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True)
-        video_id = result.stdout.strip()
-        if video_id and len(video_id) < 15:
-            print(f"   📍 ID encontrado: {video_id}")
-            return video_id
+        # Devuelve una lista de IDs limpia
+        ids = [line.strip() for line in result.stdout.split('\n') if line.strip()]
+        return ids
     except Exception as e:
-        print(f"Error buscando ID: {e}")
-    
-    print("❌ No se pudo obtener el ID del video.")
-    return None
+        print(f"Error buscando IDs: {e}")
+        return []
 
 def get_video_details(video_id):
-    """PASO 2: Obtener audio usando COOKIES y Headers reales."""
+    """Intenta extraer audio. Si es para miembros, fallará y devolverá None."""
     video_url = f"https://www.youtube.com/watch?v={video_id}"
-    print(f"🎵 Extrayendo audio de: {video_url}")
     
     command = [
         'yt-dlp',
@@ -79,12 +72,8 @@ def get_video_details(video_id):
         '--no-cache-dir',
         '--skip-download',
         '--cookies', 'cookies.txt',
-        
-        # --- EXTRA: Headers para parecer más humano ---
         '--add-header', 'Referer:https://www.youtube.com/',
         '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        # ----------------------------------------------
-
         '-f', 'bestaudio[ext=m4a]/bestaudio/best',
         '-j',
         video_url
@@ -93,13 +82,12 @@ def get_video_details(video_id):
     try:
         result = subprocess.run(command, capture_output=True, text=True)
         
+        # Si falla (ej. video miembros), yt-dlp devuelve error no-cero
         if result.returncode != 0:
-            print(f"⚠️ Error extrayendo detalles. Code: {result.returncode}")
-            # print(f"ERROR REAL: {result.stderr[-500:]}") 
+            return None
 
         output_lines = result.stdout.strip().split('\n')
         video_data = None
-        
         for line in reversed(output_lines):
             try:
                 temp = json.loads(line)
@@ -108,9 +96,6 @@ def get_video_details(video_id):
                     break
             except:
                 continue
-
-        if not video_data:
-            return None
 
         return {
             'id': video_data.get('id'),
@@ -123,8 +108,7 @@ def get_video_details(video_id):
             'channel_title': video_data.get('uploader')
         }
 
-    except Exception as e:
-        print(f"Error obteniendo detalles: {e}")
+    except:
         return None
 
 def generate_rss_xml(channel_id, episodes):
@@ -156,7 +140,6 @@ def generate_rss_xml(channel_id, episodes):
         try:
             if ep.get('upload_date'):
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
-                # CORREGIDO: pubDate en lugar de pubdate
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
@@ -183,37 +166,47 @@ def main():
 
     for url in channels:
         print(f"\n--- Procesando Canal ---")
-        
-        # --- NUEVO: PAUSA DE SEGURIDAD ---
-        # Esperamos 10 segundos antes de empezar para no saturar a YouTube
-        time.sleep(10)
-        # ---------------------------------
+        time.sleep(5) # Pequeña pausa de cortesía
         
         channel_id_safe = get_channel_identifier(url)
         
-        video_id = get_latest_video_id(url)
-        if not video_id: continue
+        # 1. Obtener lista de candidatos (últimos 5 videos)
+        candidate_ids = get_candidate_ids(url)
+        if not candidate_ids: continue
 
+        # 2. Buscar el primer video que funcione (PÚBLICO)
+        valid_video_details = None
+        for vid in candidate_ids:
+            print(f"Probando video ID: {vid}...")
+            details = get_video_details(vid)
+            if details:
+                print(f"   -> ¡Funciona! Título: {details.get('title')[:30]}...")
+                valid_video_details = details
+                break # Encontramos uno válido, dejamos de buscar
+            else:
+                print(f"   -> 🔒 Inaccesible (Miembros/Error). Saltando al siguiente...")
+        
+        if not valid_video_details:
+            print("❌ No se encontraron videos públicos recientes en este canal.")
+            continue
+
+        # 3. Lógica de Historial (Igual que antes)
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
         is_new = False
         if not current_episodes: is_new = True
-        elif current_episodes[0]['id'] != video_id: is_new = True
+        elif current_episodes[0]['id'] != valid_video_details['id']: is_new = True
 
         if is_new:
-            print("¡Video Nuevo! Descargando info...")
-            details = get_video_details(video_id)
-            if details:
-                current_episodes.insert(0, details)
-                history[channel_id_safe] = current_episodes[:MAX_EPISODES]
-                changes_made = True
+            print("✨ ¡Es un episodio NUEVO para el feed!")
+            current_episodes.insert(0, valid_video_details)
+            history[channel_id_safe] = current_episodes[:MAX_EPISODES]
+            changes_made = True
         else:
-            print("Video repetido. Refrescando enlace...")
-            details = get_video_details(video_id)
-            if details:
-                history[channel_id_safe][0]['stream_url'] = details['stream_url']
-                changes_made = True
+            print("🔄 Ya está en el feed. Actualizando enlace de audio...")
+            history[channel_id_safe][0]['stream_url'] = valid_video_details['stream_url']
+            changes_made = True
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
