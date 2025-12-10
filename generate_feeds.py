@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import time  # <--- NUEVO: Para poder pausar el script
 from feedgen.feed import FeedGenerator
 from datetime import datetime
 
@@ -26,40 +27,37 @@ def save_history(history):
 
 def get_channel_identifier(url):
     """Genera ID del canal y añade '_Directos' si es la pestaña de streams."""
-    # 1. Limpieza básica
     clean_url = url.strip().rstrip('/')
     suffix = ""
     
-    # 2. Detectamos si es /streams o /videos
     if clean_url.endswith('/streams'):
-        clean_url = clean_url[:-8] # Borra '/streams'
-        suffix = "_Directos"       # Preparamos la etiqueta
+        clean_url = clean_url[:-8]
+        suffix = "_Directos"
     elif clean_url.endswith('/videos'):
-        clean_url = clean_url[:-7] # Borra '/videos'
+        clean_url = clean_url[:-7]
     
-    # 3. Sacamos el ID limpio
     identifier = clean_url.split('/')[-1]
     identifier = identifier.replace('@', '').replace('channel', '')
     
-    # 4. Devolvemos ID + sufijo (Ej: UC12345_Directos)
     return f"{identifier}{suffix}"
-    
+
 def get_latest_video_id(channel_url):
-    """PASO 1: Obtener solo el ID del video más reciente (Rápido y seguro)."""
+    """PASO 1: Obtener solo el ID del video más reciente."""
     print(f"🔎 Buscando ID del último video en: {channel_url}")
     command = [
         'yt-dlp',
-        '--flat-playlist',          # NO procesar el video, solo listar
-        '--playlist-end', '1',      # Solo el primero
-        '--print', 'id',            # Solo imprime el ID
+        '--flat-playlist',
+        '--playlist-end', '1',
+        '--print', 'id',
         '--no-check-certificate',
         '--ignore-errors',
+        '--cookies', 'cookies.txt', # Usamos cookies también aquí por si acaso
         channel_url
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True)
         video_id = result.stdout.strip()
-        if video_id and len(video_id) < 15: # Validación básica de ID
+        if video_id and len(video_id) < 15:
             print(f"   📍 ID encontrado: {video_id}")
             return video_id
     except Exception as e:
@@ -69,7 +67,7 @@ def get_latest_video_id(channel_url):
     return None
 
 def get_video_details(video_id):
-    """PASO 2: Obtener audio usando cliente Android para evitar bloqueos."""
+    """PASO 2: Obtener audio usando COOKIES y Headers reales."""
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     print(f"🎵 Extrayendo audio de: {video_url}")
     
@@ -80,7 +78,13 @@ def get_video_details(video_id):
         '--force-ipv4',
         '--no-cache-dir',
         '--skip-download',
-        '--cookies', 'cookies.txt',       
+        '--cookies', 'cookies.txt',
+        
+        # --- EXTRA: Headers para parecer más humano ---
+        '--add-header', 'Referer:https://www.youtube.com/',
+        '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        # ----------------------------------------------
+
         '-f', 'bestaudio[ext=m4a]/bestaudio/best',
         '-j',
         video_url
@@ -89,10 +93,9 @@ def get_video_details(video_id):
     try:
         result = subprocess.run(command, capture_output=True, text=True)
         
-        # He descomentado el error para que si falla, veamos EXACTAMENTE qué dice YouTube
         if result.returncode != 0:
             print(f"⚠️ Error extrayendo detalles. Code: {result.returncode}")
-            print(f"ERROR REAL: {result.stderr[-500:]}") # Imprimimos los últimos 500 caracteres
+            # print(f"ERROR REAL: {result.stderr[-500:]}") 
 
         output_lines = result.stdout.strip().split('\n')
         video_data = None
@@ -125,9 +128,7 @@ def get_video_details(video_id):
         return None
 
 def generate_rss_xml(channel_id, episodes):
-    """Genera el XML cambiando el título si es un feed de Directos."""
-    if not episodes:
-        return
+    if not episodes: return
 
     fg = FeedGenerator()
     fg.load_extension('podcast')
@@ -135,12 +136,10 @@ def generate_rss_xml(channel_id, episodes):
     latest = episodes[0] 
     fg.id(channel_id)
     
-    # --- LÓGICA DE TÍTULO DINÁMICO ---
     if channel_id.endswith('_Directos'):
         podcast_title = f"{latest['channel_title']} (Directos)"
     else:
         podcast_title = f"{latest['channel_title']} (Audio)"
-    # ---------------------------------
 
     fg.title(podcast_title)
     fg.description(f"Podcast generado de: {latest['channel_title']}")
@@ -157,21 +156,19 @@ def generate_rss_xml(channel_id, episodes):
         try:
             if ep.get('upload_date'):
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
-                fe.pubdate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
-        except:
-            pass
+                # CORREGIDO: pubDate en lugar de pubdate
+                fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
+        except: pass
 
         fe.enclosure(url=ep['stream_url'], length='0', type='audio/mp4')
-        if ep.get('duration'):
-            fe.podcast.itunes_duration(ep['duration'])
+        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-        
+    if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
+    
     filename = f'{channel_id}.xml'
     fg.rss_file(os.path.join(OUTPUT_DIR, filename), pretty=True)
     print(f"✅ Feed generado: {filename}")
-    
+
 def main():
     if not os.path.exists(CHANNELS_FILE):
         print(f"Falta {CHANNELS_FILE}")
@@ -185,14 +182,18 @@ def main():
     changes_made = False
 
     for url in channels:
-        print(f"--- Procesando Canal ---")
+        print(f"\n--- Procesando Canal ---")
+        
+        # --- NUEVO: PAUSA DE SEGURIDAD ---
+        # Esperamos 10 segundos antes de empezar para no saturar a YouTube
+        time.sleep(10)
+        # ---------------------------------
+        
         channel_id_safe = get_channel_identifier(url)
         
-        # 1. CONSEGUIR ID
         video_id = get_latest_video_id(url)
         if not video_id: continue
 
-        # 2. VERIFICAR SI ES NUEVO
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
@@ -200,7 +201,6 @@ def main():
         if not current_episodes: is_new = True
         elif current_episodes[0]['id'] != video_id: is_new = True
 
-        # 3. EXTRAER DETALLES (Solo si es nuevo o para refrescar el link)
         if is_new:
             print("¡Video Nuevo! Descargando info...")
             details = get_video_details(video_id)
@@ -210,7 +210,6 @@ def main():
                 changes_made = True
         else:
             print("Video repetido. Refrescando enlace...")
-            # Opcional: Volver a pedir detalles para refrescar el link caducado
             details = get_video_details(video_id)
             if details:
                 history[channel_id_safe][0]['stream_url'] = details['stream_url']
