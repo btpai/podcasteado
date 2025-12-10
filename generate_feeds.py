@@ -15,6 +15,7 @@ def get_latest_video_info(channel_url):
     try:
         command = [
             'yt-dlp', 
+            '-v',
             '--playlist-end', '1', 
             '--skip-download', 
             '-f', 'bestaudio[ext=m4a]/bestaudio/best',
