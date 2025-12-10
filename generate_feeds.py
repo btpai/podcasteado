@@ -2,34 +2,13 @@ import subprocess
 import json
 import os
 import time
-from feedgen.feed import FeedGenerator
 from datetime import datetime
 
 # --- CONFIGURACIÓN ---
 OUTPUT_DIR = 'feeds'
 CHANNELS_FILE = 'channels.txt'
-HISTORY_FILE = 'history.json'
-MAX_EPISODES = 15 
-
-# VOLVEMOS A INVIDIOUS (Mejor para VLC que Piped)
-# Usamos el servidor principal que suele ser el más compatible con M3U8
-INVIDIOUS_DOMAIN = "https://yewtu.be"
-
-# Si yewtu.be te falla algún día, cambia la línea de arriba por:
-# "https://inv.nadeko.net"
-# "https://invidious.drg.li"
+MAX_EPISODES = 15
 # ---------------------
-
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, 'r') as f: return json.load(f)
-        except: return {}
-    return {}
-
-def save_history(history):
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=4)
 
 def get_channel_identifier(url):
     clean_url = url.strip().rstrip('/')
@@ -44,15 +23,15 @@ def get_channel_identifier(url):
 
 def get_latest_videos_flat(channel_url):
     """
-    Modo Flat Dump (Seguro).
-    Genera enlaces M3U8 de Invidious para VLC.
+    Obtiene Título e ID.
+    NO genera enlaces proxy. Usa enlaces originales de YouTube.
     """
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
         '--dump-single-json', 
         '--flat-playlist',     
-        '--playlist-end', '10', 
+        '--playlist-end', str(MAX_EPISODES), 
         '--no-check-certificate',
         '--ignore-errors',
         channel_url
@@ -74,106 +53,65 @@ def get_latest_videos_flat(channel_url):
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # --- MODO VLC / M3U8 ---
-            # Enlace al manifiesto de streaming de Invidious.
-            # ?subs=0 quita subtítulos para evitar conflictos.
-            proxy_url = f"{INVIDIOUS_DOMAIN}/api/manifest/hls_variant/{vid_id}.m3u8?subs=0"
+            # --- ENLACE NATIVO ---
+            # Usamos la URL oficial. VLC sabrá qué hacer con ella.
+            native_url = f"https://www.youtube.com/watch?v={vid_id}"
             
             videos_found.append({
-                'id': vid_id,
                 'title': title,
-                'description': "Streaming HLS vía Invidious.",
-                'upload_date': entry.get('upload_date'),
-                'duration': entry.get('duration'),
-                'stream_url': proxy_url,
-                'webpage_url': f"https://www.youtube.com/watch?v={vid_id}",
-                'channel_title': data.get('uploader') or data.get('title') or "Canal"
+                'url': native_url,
+                'duration': entry.get('duration')
             })
             
         return videos_found
 
     except Exception as e:
-        print(f"❌ Error crítico procesando canal: {e}")
+        print(f"❌ Error procesando canal: {e}")
         return []
 
-def generate_rss_xml(channel_id, episodes):
-    if not episodes: return
-    fg = FeedGenerator()
-    fg.load_extension('podcast')
+def generate_m3u_playlist(channel_id, videos):
+    """Genera un archivo de lista de reproducción .m3u compatible con VLC."""
+    if not videos: return
+
+    filename = f'{channel_id}.m3u'
+    filepath = os.path.join(OUTPUT_DIR, filename)
     
-    latest = episodes[0]
-    
-    suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
-    fg.title(f"{latest['channel_title']}{suffix}")
-    fg.description(f"Feed VLC (Invidious): {latest['channel_title']}")
-    fg.link(href=latest['webpage_url'], rel='alternate')
-    fg.language('es')
-
-    for ep in episodes:
-        fe = fg.add_entry()
-        fe.id(ep['id'])
-        fe.title(ep['title'])
-        fe.link(href=ep['webpage_url'])
-        fe.description(ep['description'])
-        
-        try:
-            if ep.get('upload_date'):
-                date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
-                fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
-        except: pass
-
-        # Tipo MIME M3U8 (Standard para VLC)
-        fe.enclosure(url=ep['stream_url'], length='0', type='application/x-mpegURL')
-        
-        # Corrección de duración (Evita el fallo del script)
-        duration_raw = ep.get('duration')
-        if duration_raw:
-            try:
-                seconds = int(float(duration_raw))
-                fe.podcast.itunes_duration(seconds)
-            except (ValueError, TypeError):
-                pass 
-
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
-    filename = f'{channel_id}.xml'
-    fg.rss_file(os.path.join(OUTPUT_DIR, filename), pretty=True)
-    print(f"✅ Feed generado: {filename}")
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        # Cabecera M3U
+        f.write("#EXTM3U\n")
+        
+        for vid in videos:
+            # Duración y Título
+            duration = vid.get('duration') or -1
+            title = vid.get('title').replace(',', ' ') # Limpiamos comas
+            
+            f.write(f"#EXTINF:{duration},{title}\n")
+            f.write(f"{vid['url']}\n")
+    
+    print(f"✅ Playlist generada: {filename}")
 
 def main():
     if not os.path.exists(CHANNELS_FILE):
         print(f"Falta {CHANNELS_FILE}")
         return
 
-    history = load_history()
     with open(CHANNELS_FILE, 'r') as f:
         channels = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-    changes_made = False
-
     for url in channels:
         print(f"\n--- Procesando Canal ---")
-        time.sleep(2)
+        # No hace falta sleep porque el dump json es muy ligero
         channel_id_safe = get_channel_identifier(url)
         
         latest_videos = get_latest_videos_flat(url)
         
-        if not latest_videos:
+        if latest_videos:
+            print(f"   -> Encontrados {len(latest_videos)} videos.")
+            generate_m3u_playlist(channel_id_safe, latest_videos)
+        else:
             print("❌ No se encontraron videos.")
-            continue
-
-        print(f"   -> Encontrados {len(latest_videos)} videos.")
-
-        if channel_id_safe not in history: history[channel_id_safe] = []
-        
-        # Refrescamos siempre para asegurar que la URL sea la correcta
-        print(f"✨ Actualizando enlaces Invidious...")
-        history[channel_id_safe] = latest_videos
-        changes_made = True
-
-        generate_rss_xml(channel_id_safe, history[channel_id_safe])
-
-    if changes_made:
-        save_history(history)
 
 if __name__ == '__main__':
     main()
