@@ -13,7 +13,7 @@ MAX_EPISODES = 15
 
 # Volvemos a una instancia clásica. 
 # Si esta falla, prueba: https://vid.uff.dog o https://yewtu.be
-INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
+INVIDIOUS_DOMAIN = "https://yewtu.be"
 # ---------------------
 
 def load_history():
