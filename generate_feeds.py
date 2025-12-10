@@ -11,8 +11,8 @@ CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
-# Instancia Invidious (Proxy Local)
-# Si inv.tux.pizza falla, prueba: https://yewtu.be
+# Volvemos a una instancia clásica. 
+# Si esta falla, prueba: https://vid.uff.dog o https://yewtu.be
 INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
 # ---------------------
 
@@ -39,7 +39,10 @@ def get_channel_identifier(url):
     return f"{identifier}{suffix}"
 
 def get_latest_videos_flat(channel_url):
-    """Obtiene Título e ID del índice del canal (Modo Seguro)."""
+    """
+    Modo Flat Dump (Seguro).
+    Sin cookies, sin peticiones API, sin trucos raros en la URL.
+    """
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
@@ -67,15 +70,18 @@ def get_latest_videos_flat(channel_url):
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # Proxy URL con local=true para evitar bloqueos
-            proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18&local=true#.mp4"
+            # --- URL LIMPIA (Lo que pediste) ---
+            # Quitamos 'local=true' y '#.mp4'.
+            # Esto hará una redirección 302 estándar a Google Video.
+            # VLC maneja esto perfectamente.
+            proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18"
             
             videos_found.append({
                 'id': vid_id,
                 'title': title,
-                'description': "Video proxy vía Invidious.",
+                'description': "Video vía Invidious.",
                 'upload_date': entry.get('upload_date'),
-                'duration': entry.get('duration'), # Aquí viene el dato problemático
+                'duration': entry.get('duration'),
                 'stream_url': proxy_url,
                 'webpage_url': f"https://www.youtube.com/watch?v={vid_id}",
                 'channel_title': data.get('uploader') or data.get('title') or "Canal"
@@ -95,7 +101,7 @@ def generate_rss_xml(channel_id, episodes):
     latest = episodes[0]
     suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
     fg.title(f"{latest['channel_title']}{suffix}")
-    fg.description(f"Feed Proxy Local: {latest['channel_title']}")
+    fg.description(f"Feed Invidious: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -112,21 +118,17 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
-        # Enlace VIDEO MP4
+        # Mantenemos video/mp4 porque itag 18 ES video
         fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
         
-        # --- CORRECCIÓN DE DURACIÓN ---
-        # Convertimos a entero (segundos) o ignoramos si falla
+        # Mantenemos la corrección de seguridad para la duración (para que no falle el script)
         duration_raw = ep.get('duration')
         if duration_raw:
             try:
-                # Convertimos a float primero por si viene como "300.0" y luego a int
                 seconds = int(float(duration_raw))
                 fe.podcast.itunes_duration(seconds)
             except (ValueError, TypeError):
-                # Si el formato es raro, simplemente no ponemos duración
                 pass
-        # ------------------------------
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
     filename = f'{channel_id}.xml'
@@ -160,8 +162,8 @@ def main():
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
-        # Forzamos actualización siempre para refrescar este intento
-        print(f"✨ Actualizando feed con {latest_videos[0]['title']}")
+        # Siempre actualizamos para refrescar las URLs por si cambiamos de dominio
+        print(f"✨ Actualizando feed...")
         history[channel_id_safe] = latest_videos
         changes_made = True
 
