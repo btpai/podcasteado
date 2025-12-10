@@ -9,10 +9,10 @@ from datetime import datetime
 OUTPUT_DIR = 'feeds'
 CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
-MAX_EPISODES = 15 
+MAX_EPISODES = 15 # Aumentamos un poco para tener margen
 
-# Instancia para generar el M3U8.
-# Si inv.nadeko.net falla, prueba: https://yewtu.be o https://vid.uff.dog o https://inv.nadeko.net
+# Instancia Invidious para la reproducción (Tu móvil se conectará aquí).
+# Usamos inv.tux.pizza que suele ser robusta, o puedes volver a yewtu.be
 INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
 # ---------------------
 
@@ -39,45 +39,58 @@ def get_channel_identifier(url):
     return f"{identifier}{suffix}"
 
 def get_latest_videos_flat(channel_url):
-    """Modo Flat Dump (Seguro y Rápido)."""
+    """
+    Obtiene Título e ID directamente del índice del canal.
+    NO hace peticiones individuales a los videos.
+    NO conecta con APIs externas.
+    """
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
-        '--dump-single-json', 
-        '--flat-playlist',     
-        '--playlist-end', '10', 
+        '--dump-single-json',  # Devuelve todo en un solo JSON gigante
+        '--flat-playlist',     # CRUCIAL: No analiza los videos, solo lista
+        '--playlist-end', '10', # Leemos los últimos 10
         '--no-check-certificate',
         '--ignore-errors',
         channel_url
     ]
     
     try:
+        # Ejecutamos yt-dlp
         result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0: return []
+        
+        if result.returncode != 0:
+            print(f"⚠️ Error leyendo índice. Code: {result.returncode}")
+            return []
 
         data = json.loads(result.stdout)
-        if 'entries' not in data: return []
+        
+        # En modo flat, 'entries' tiene la lista de videos
+        if 'entries' not in data:
+            return []
             
         videos_found = []
         
         for entry in data['entries']:
+            # En modo flat, entry tiene 'id', 'title', 'url' pero no 'description' completa
             vid_id = entry.get('id')
             title = entry.get('title')
             
+            # Filtramos videos privados o borrados que a veces salen sin título
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # --- MODO VLC (M3U8) ---
-            # Construimos un enlace al manifiesto HLS de Invidious.
-            # Esto devuelve un archivo .m3u8 real que VLC adora.
-            proxy_url = f"{INVIDIOUS_DOMAIN}/api/manifest/hls_variant/{vid_id}.m3u8?subs=0"
+            # --- CONSTRUCCIÓN CIEGA DEL ENLACE ---
+            # No comprobamos si funciona. Asumimos que sí.
+            # AntennaPod hará el trabajo duro.
+            proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18"
             
             videos_found.append({
                 'id': vid_id,
                 'title': title,
-                'description': "Streaming HLS vía Invidious.",
-                'upload_date': entry.get('upload_date'),
-                'duration': entry.get('duration'),
+                'description': "Descripción no disponible en modo rápido.", # yt-dlp flat no da descripción
+                'upload_date': entry.get('upload_date'), # A veces viene, a veces no
+                'duration': entry.get('duration'), # A veces viene
                 'stream_url': proxy_url,
                 'webpage_url': f"https://www.youtube.com/watch?v={vid_id}",
                 'channel_title': data.get('uploader') or data.get('title') or "Canal"
@@ -94,10 +107,12 @@ def generate_rss_xml(channel_id, episodes):
     fg = FeedGenerator()
     fg.load_extension('podcast')
     
+    # Datos del canal (usamos el del video más nuevo)
     latest = episodes[0]
+    
     suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
     fg.title(f"{latest['channel_title']}{suffix}")
-    fg.description(f"Feed VLC: {latest['channel_title']}")
+    fg.description(f"Feed generado para: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -110,22 +125,20 @@ def generate_rss_xml(channel_id, episodes):
         
         try:
             if ep.get('upload_date'):
+                # yt-dlp flat suele devolver string 'YYYYMMDD' si está disponible
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
+            else:
+                # Si no hay fecha, usamos la hora actual para que no falle, 
+                # o no ponemos nada. Poner "ahora" asegura que aparezca arriba.
+                # fe.pubDate(datetime.now().replace(tzinfo=datetime.now().astimezone().tzinfo))
+                pass
         except: pass
 
-        # --- TIPO MIME CORRECTO PARA M3U8 ---
-        # Usamos application/x-mpegURL, que es el estándar para listas m3u8
-        fe.enclosure(url=ep['stream_url'], length='0', type='application/x-mpegURL')
+        # Enlace VIDEO MP4 permanente vía Invidious
+        fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
         
-        # Corrección de duración
-        duration_raw = ep.get('duration')
-        if duration_raw:
-            try:
-                seconds = int(float(duration_raw))
-                fe.podcast.itunes_duration(seconds)
-            except (ValueError, TypeError):
-                pass
+        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
     filename = f'{channel_id}.xml'
@@ -148,20 +161,28 @@ def main():
         time.sleep(2)
         channel_id_safe = get_channel_identifier(url)
         
+        # 1. Obtenemos lista de videos (Modo Flat)
         latest_videos = get_latest_videos_flat(url)
         
         if not latest_videos:
             print("❌ No se encontraron videos.")
             continue
 
-        print(f"   -> Encontrados {len(latest_videos)} videos.")
+        print(f"   -> Encontrados {len(latest_videos)} videos en el índice.")
 
+        # 2. Actualizar Historial
         if channel_id_safe not in history: history[channel_id_safe] = []
+        current_episodes = history[channel_id_safe]
         
-        # Refrescamos siempre
-        print(f"✨ Actualizando enlaces M3U8...")
-        history[channel_id_safe] = latest_videos
-        changes_made = True
+        # Comparamos el ID del más nuevo
+        if not current_episodes or current_episodes[0]['id'] != latest_videos[0]['id']:
+            print(f"✨ Nuevo episodio: {latest_videos[0]['title']}")
+            # Reemplazamos la lista con los nuevos datos frescos del índice
+            # Esto corrige enlaces o títulos si cambiaron, y añade los nuevos
+            history[channel_id_safe] = latest_videos
+            changes_made = True
+        else:
+            print("🔄 Sin novedades (ID coincide).")
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
