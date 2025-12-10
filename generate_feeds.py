@@ -70,7 +70,7 @@ def get_video_details(video_id):
         
         # --- CAMUFLAJE ANTI-BOTS (El truco clave) ---
         # Forzamos a yt-dlp a usar la API interna de Android, que es más permisiva
-        '--extractor-args', 'youtube:player_client=android',
+        '--extractor-args', 'youtube:player_client=ios',
         # --------------------------------------------
 
         '-f', 'bestaudio[ext=m4a]/bestaudio/best',
