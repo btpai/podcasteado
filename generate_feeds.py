@@ -12,7 +12,6 @@ MAX_EPISODES = 10  # Cuántos episodios mantener en el feed
 # ---------------------
 
 def load_history():
-    """Carga el historial de episodios desde el archivo JSON."""
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, 'r') as f:
@@ -22,73 +21,80 @@ def load_history():
     return {}
 
 def save_history(history):
-    """Guarda el historial actualizado en el archivo JSON."""
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=4)
 
 def get_channel_identifier(url):
-    """Genera un nombre de archivo seguro basado en la URL."""
-    # Elimina partes de la URL para dejar un ID limpio
-    clean = url.split('/')[-1] if url.split('/')[-1] != 'videos' else url.split('/')[-2]
-    return clean.replace('@', '').replace('user_', '').replace('channel_', '')
+    # Intenta limpiar la URL para usarla como nombre de archivo
+    parts = url.split('/')
+    if 'channel' in parts:
+        return parts[parts.index('channel') + 1]
+    return parts[-1].replace('@', '').replace('videos', '')
 
-def get_latest_video_info(channel_url):
-    """
-    Versión robusta con argumentos 'safe-mode' para servidores GitHub Actions.
-    """
-    print(f"🔍 Procesando: {channel_url}")
+def get_latest_video_id(channel_url):
+    """PASO 1: Obtener solo el ID del video más reciente (Rápido y seguro)."""
+    print(f"🔎 Buscando ID del último video en: {channel_url}")
+    command = [
+        'yt-dlp',
+        '--flat-playlist',          # NO procesar el video, solo listar
+        '--playlist-end', '1',      # Solo el primero
+        '--print', 'id',            # Solo imprime el ID
+        '--no-check-certificate',
+        '--ignore-errors',
+        channel_url
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+        video_id = result.stdout.strip()
+        if video_id and len(video_id) < 15: # Validación básica de ID
+            print(f"   📍 ID encontrado: {video_id}")
+            return video_id
+    except Exception as e:
+        print(f"Error buscando ID: {e}")
+    
+    print("❌ No se pudo obtener el ID del video.")
+    return None
+
+def get_video_details(video_id):
+    """PASO 2: Obtener el audio y metadatos de un video específico."""
+    video_url = f"https://www.youtube.com/watch?v={video_id}"
+    print(f"🎵 Extrayendo audio de: {video_url}")
     
     command = [
         'yt-dlp',
-        # --- BLOQUE DE SEGURIDAD Y RED ---
-        '-v',                       # Verbose: Para ver errores detallados
-        '--ignore-errors',          # Intentar continuar si hay errores menores
-        '--no-check-certificate',   # Evita errores SSL
-        '--force-ipv4',             # CRUCIAL: GitHub Actions suele fallar con IPv6 en YouTube
-        '--no-cache-dir',           # Evita datos corruptos de ejecuciones anteriores
-        
-        # --- BLOQUE DE EXTRACCIÓN ---
-        '--playlist-end', '1',      # Solo el primer video
-        '--skip-download',          # NO descargar, solo extraer info
-        '-f', 'bestaudio[ext=m4a]/bestaudio/best', # Priorizar m4a/aac para compatibilidad podcast
-        '-j',                       # Salida en JSON
-        
-        # --- LA URL ---
-        channel_url
+        '-v',
+        '--no-check-certificate',
+        '--force-ipv4',
+        '--no-cache-dir',
+        '--skip-download',
+        '-f', 'bestaudio[ext=m4a]/bestaudio/best',
+        '-j',
+        video_url
     ]
     
     try:
-        # Ejecutamos el comando
         result = subprocess.run(command, capture_output=True, text=True)
         
-        # Si falló, imprimimos alerta pero intentamos buscar JSON en la salida por si acaso
         if result.returncode != 0:
-            print(f"⚠️ Alerta: yt-dlp devolvió código {result.returncode}")
-            # Imprimimos solo el error final para no saturar el log
-            print(f"   STDERR: {result.stderr[-500:]}") 
+            print(f"⚠️ Error extrayendo detalles. Code: {result.returncode}")
+            # print(result.stderr) # Descomentar para debug extremo
 
-        # --- LÓGICA DE PARSEO JSON MEJORADA ---
-        # yt-dlp con modo '-v' imprime mucha basura antes del JSON real.
-        # Leemos las líneas desde el final hacia arriba para encontrar el JSON válido.
         output_lines = result.stdout.strip().split('\n')
-        
         video_data = None
+        
+        # Buscar el JSON válido desde el final
         for line in reversed(output_lines):
             try:
-                temp_data = json.loads(line)
-                # Validamos que parezca un video real
-                if 'id' in temp_data and 'url' in temp_data:
-                    video_data = temp_data
+                temp = json.loads(line)
+                if 'id' in temp and 'url' in temp:
+                    video_data = temp
                     break
-            except json.JSONDecodeError:
+            except:
                 continue
 
         if not video_data:
-            print(f"❌ No se encontró JSON válido para {channel_url}")
             return None
-            
-        print(f"✅ Éxito: {video_data.get('title')}")
-        
+
         return {
             'id': video_data.get('id'),
             'title': video_data.get('title'),
@@ -101,26 +107,22 @@ def get_latest_video_info(channel_url):
         }
 
     except Exception as e:
-        print(f"❌ Error crítico en script Python: {e}")
+        print(f"Error obteniendo detalles: {e}")
         return None
 
 def generate_rss_xml(channel_id, episodes):
-    """Genera el XML del podcast con la lista de episodios."""
-    if not episodes:
-        return
+    if not episodes: return
 
     fg = FeedGenerator()
     fg.load_extension('podcast')
     
-    # Usamos los datos del último video para llenar la info del canal
     latest = episodes[0] 
     fg.id(channel_id)
     fg.title(f"{latest['channel_title']} (Audio)")
-    fg.description(f"Podcast generado automáticamente de: {latest['channel_title']}")
+    fg.description(f"Podcast de: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
-    # Añadir episodios al feed
     for ep in episodes:
         fe = fg.add_entry()
         fe.id(ep['id'])
@@ -128,31 +130,24 @@ def generate_rss_xml(channel_id, episodes):
         fe.link(href=ep['webpage_url'])
         fe.description(ep['description'])
         
-        # Formatear fecha para RSS (yyyymmdd -> datetime)
         try:
             if ep.get('upload_date'):
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
                 fe.pubdate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
-        except:
-            pass
+        except: pass
 
-        # Enlace directo al audio
         fe.enclosure(url=ep['stream_url'], length='0', type='audio/mp4')
-        
-        if ep.get('duration'):
-            fe.podcast.itunes_duration(ep['duration'])
+        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
-    # Guardar archivo
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-        
+    if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
+    
     filename = f'{channel_id}.xml'
     fg.rss_file(os.path.join(OUTPUT_DIR, filename), pretty=True)
-    print(f"Feed actualizado: {filename}")
+    print(f"✅ Feed generado: {filename}")
 
 def main():
     if not os.path.exists(CHANNELS_FILE):
-        print(f"No se encontró {CHANNELS_FILE}")
+        print(f"Falta {CHANNELS_FILE}")
         return
 
     history = load_history()
@@ -163,45 +158,41 @@ def main():
     changes_made = False
 
     for url in channels:
-        print(f"--------------------------------------------------")
-        channel_id = get_channel_identifier(url)
-        video_info = get_latest_video_info(url)
+        print(f"--- Procesando Canal ---")
+        channel_id_safe = get_channel_identifier(url)
         
-        if not video_info:
-            continue
+        # 1. CONSEGUIR ID
+        video_id = get_latest_video_id(url)
+        if not video_id: continue
 
-        # Inicializar historial para este canal si no existe
-        if channel_id not in history:
-            history[channel_id] = []
-
-        current_episodes = history[channel_id]
+        # 2. VERIFICAR SI ES NUEVO
+        if channel_id_safe not in history: history[channel_id_safe] = []
+        current_episodes = history[channel_id_safe]
         
-        # --- DETECCIÓN DE VIDEO NUEVO ---
         is_new = False
-        if not current_episodes:
-            is_new = True
-        elif current_episodes[0]['id'] != video_info['id']:
-            is_new = True
+        if not current_episodes: is_new = True
+        elif current_episodes[0]['id'] != video_id: is_new = True
 
+        # 3. EXTRAER DETALLES (Solo si es nuevo o para refrescar el link)
         if is_new:
-            print(f"🆕 ¡NUEVO EPISODIO DETECTADO!: {video_info['title']}")
-            current_episodes.insert(0, video_info)
-            # Mantener solo los últimos X episodios
-            history[channel_id] = current_episodes[:MAX_EPISODES]
-            changes_made = True
+            print("¡Video Nuevo! Descargando info...")
+            details = get_video_details(video_id)
+            if details:
+                current_episodes.insert(0, details)
+                history[channel_id_safe] = current_episodes[:MAX_EPISODES]
+                changes_made = True
         else:
-            print("🔄 Episodio repetido. Actualizando enlace de audio (Refresco)...")
-            history[channel_id][0]['stream_url'] = video_info['stream_url']
-            changes_made = True
+            print("Video repetido. Refrescando enlace...")
+            # Opcional: Volver a pedir detalles para refrescar el link caducado
+            details = get_video_details(video_id)
+            if details:
+                history[channel_id_safe][0]['stream_url'] = details['stream_url']
+                changes_made = True
 
-        # Regenerar siempre el XML
-        generate_rss_xml(channel_id, history[channel_id])
+        generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
     if changes_made:
         save_history(history)
-        print("💾 Historial guardado.")
-    else:
-        print("💤 No hubo cambios necesarios.")
 
 if __name__ == '__main__':
     main()
