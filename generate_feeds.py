@@ -56,7 +56,7 @@ def get_latest_video_id(channel_url):
     return None
 
 def get_video_details(video_id):
-    """PASO 2: Obtener el audio y metadatos de un video específico."""
+    """PASO 2: Obtener audio usando cliente Android para evitar bloqueos."""
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     print(f"🎵 Extrayendo audio de: {video_url}")
     
@@ -67,6 +67,12 @@ def get_video_details(video_id):
         '--force-ipv4',
         '--no-cache-dir',
         '--skip-download',
+        
+        # --- CAMUFLAJE ANTI-BOTS (El truco clave) ---
+        # Forzamos a yt-dlp a usar la API interna de Android, que es más permisiva
+        '--extractor-args', 'youtube:player_client=android',
+        # --------------------------------------------
+
         '-f', 'bestaudio[ext=m4a]/bestaudio/best',
         '-j',
         video_url
@@ -75,14 +81,14 @@ def get_video_details(video_id):
     try:
         result = subprocess.run(command, capture_output=True, text=True)
         
+        # He descomentado el error para que si falla, veamos EXACTAMENTE qué dice YouTube
         if result.returncode != 0:
             print(f"⚠️ Error extrayendo detalles. Code: {result.returncode}")
-            # print(result.stderr) # Descomentar para debug extremo
+            print(f"ERROR REAL: {result.stderr[-500:]}") # Imprimimos los últimos 500 caracteres
 
         output_lines = result.stdout.strip().split('\n')
         video_data = None
         
-        # Buscar el JSON válido desde el final
         for line in reversed(output_lines):
             try:
                 temp = json.loads(line)
