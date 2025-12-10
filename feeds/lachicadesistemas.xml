@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>La Chica de Sistemas</title>
+    <link>https://www.youtube.com/watch?v=Pz-K_UU3VvU</link>
+    <description>Feed Invidious: La Chica de Sistemas</description>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <language>es</language>
+    <lastBuildDate>Wed, 10 Dec 2025 15:57:33 +0000</lastBuildDate>
+    <item>
+      <title>We have to talk about Ubuntu</title>
+      <link>https://www.youtube.com/watch?v=7uk5E0vi9d4</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">7uk5E0vi9d4</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=7uk5E0vi9d4&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>635</itunes:duration>
+    </item>
+    <item>
+      <title>The System Everyone Uses...Without Knowing It.</title>
+      <link>https://www.youtube.com/watch?v=3dhb93oxhGc</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">3dhb93oxhGc</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=3dhb93oxhGc&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1329</itunes:duration>
+    </item>
+    <item>
+      <title>FREE SOFTWARE IS AN ANOMALY</title>
+      <link>https://www.youtube.com/watch?v=tCwH-_XS_2U</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">tCwH-_XS_2U</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=tCwH-_XS_2U&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>870</itunes:duration>
+    </item>
+    <item>
+      <title>DEBIAN VS. FEDORA</title>
+      <link>https://www.youtube.com/watch?v=QAo46IQBKfQ</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">QAo46IQBKfQ</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=QAo46IQBKfQ&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1702</itunes:duration>
+    </item>
+    <item>
+      <title>Wayland: Linux's Master Move, Explained.</title>
+      <link>https://www.youtube.com/watch?v=fCmA7ZF8kJA</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">fCmA7ZF8kJA</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=fCmA7ZF8kJA&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1189</itunes:duration>
+    </item>
+    <item>
+      <title>I Was on the Radio! - Radio interview on the program Resetados, Radio LT8</title>
+      <link>https://www.youtube.com/watch?v=Ra3dxrDCDuQ</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">Ra3dxrDCDuQ</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=Ra3dxrDCDuQ&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>582</itunes:duration>
+    </item>
+    <item>
+      <title>THE BEST LINUX DISTROS OF 2025</title>
+      <link>https://www.youtube.com/watch?v=505uXwYDjT0</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">505uXwYDjT0</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=505uXwYDjT0&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1578</itunes:duration>
+    </item>
+    <item>
+      <title>ReactOS: Free Windows: What wasn't it?</title>
+      <link>https://www.youtube.com/watch?v=Gr1tczWx5hw</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">Gr1tczWx5hw</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=Gr1tczWx5hw&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1236</itunes:duration>
+    </item>
+    <item>
+      <title>Artificial Intelligence Is Killing the Web. Can We Save It?</title>
+      <link>https://www.youtube.com/watch?v=9ROpGOrsLUQ</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">9ROpGOrsLUQ</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=9ROpGOrsLUQ&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>1049</itunes:duration>
+    </item>
+    <item>
+      <title>LINUX SHOULD NOT EXIST</title>
+      <link>https://www.youtube.com/watch?v=Pz-K_UU3VvU</link>
+      <description>Video vía Invidious.</description>
+      <guid isPermaLink="false">Pz-K_UU3VvU</guid>
+      <enclosure url="https://inv.tux.pizza/latest_version?id=Pz-K_UU3VvU&amp;itag=18" length="0" type="video/mp4"/>
+      <itunes:duration>2145</itunes:duration>
+    </item>
+  </channel>
+</rss>
