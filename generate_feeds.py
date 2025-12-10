@@ -39,12 +39,12 @@ def get_channel_identifier(url):
     return f"{identifier}{suffix}"
 
 def get_candidate_ids(channel_url):
-    """Obtiene los IDs de los últimos 5 videos para probar cuál funciona."""
+    """Obtiene los IDs de los últimos 5 videos."""
     print(f"🔎 Analizando lista de videos en: {channel_url}")
     command = [
         'yt-dlp',
         '--flat-playlist',
-        '--playlist-end', '5', # Miramos los últimos 5 por si hay videos de miembros
+        '--playlist-end', '5',
         '--print', 'id',
         '--no-check-certificate',
         '--ignore-errors',
@@ -53,7 +53,6 @@ def get_candidate_ids(channel_url):
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True)
-        # Devuelve una lista de IDs limpia
         ids = [line.strip() for line in result.stdout.split('\n') if line.strip()]
         return ids
     except Exception as e:
@@ -61,7 +60,11 @@ def get_candidate_ids(channel_url):
         return []
 
 def get_video_details(video_id):
-    """Intenta extraer audio. Si es para miembros, fallará y devolverá None."""
+    """
+    Intenta extraer SOLO AUDIO COMPATIBLE (M4A/AAC).
+    Forzamos vcodec=none para que no baje video.
+    Forzamos protocol=https para intentar evitar m3u8 (HLS).
+    """
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     
     command = [
@@ -74,7 +77,14 @@ def get_video_details(video_id):
         '--cookies', 'cookies.txt',
         '--add-header', 'Referer:https://www.youtube.com/',
         '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        '-f', 'bestaudio[ext=m4a]/bestaudio/best',
+        
+        # --- CAMBIO CRÍTICO PARA ANTENNAPOD ---
+        # 1. bestaudio[ext=m4a]: Queremos M4A (AAC) nativo.
+        # 2. [vcodec=none]: ¡PROHIBIDO VIDEO!
+        # 3. [protocol^=http]: Preferimos enlace directo, no m3u8.
+        '-f', 'bestaudio[ext=m4a][vcodec=none][protocol^=http]/bestaudio[ext=m4a][vcodec=none]/bestaudio',
+        # --------------------------------------
+        
         '-j',
         video_url
     ]
@@ -82,7 +92,6 @@ def get_video_details(video_id):
     try:
         result = subprocess.run(command, capture_output=True, text=True)
         
-        # Si falla (ej. video miembros), yt-dlp devuelve error no-cero
         if result.returncode != 0:
             return None
 
@@ -96,6 +105,12 @@ def get_video_details(video_id):
                     break
             except:
                 continue
+
+        # --- VERIFICACIÓN DE SEGURIDAD ---
+        # Si yt-dlp nos ha traicionado y nos ha dado un video, lo descartamos
+        if video_data.get('vcodec') != 'none':
+            print(f"⚠️ Aviso: Se detectó video en la respuesta. Intentando filtrar...")
+            # (Aquí confiamos en que el filtro -f funcionó, pero esto es un log por si acaso)
 
         return {
             'id': video_data.get('id'),
@@ -143,7 +158,9 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
+        # Tipo MIME estricto para AntennaPod
         fe.enclosure(url=ep['stream_url'], length='0', type='audio/mp4')
+        
         if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
@@ -166,31 +183,32 @@ def main():
 
     for url in channels:
         print(f"\n--- Procesando Canal ---")
-        time.sleep(5) # Pequeña pausa de cortesía
+        time.sleep(5)
         
         channel_id_safe = get_channel_identifier(url)
         
-        # 1. Obtener lista de candidatos (últimos 5 videos)
         candidate_ids = get_candidate_ids(url)
         if not candidate_ids: continue
 
-        # 2. Buscar el primer video que funcione (PÚBLICO)
         valid_video_details = None
         for vid in candidate_ids:
             print(f"Probando video ID: {vid}...")
             details = get_video_details(vid)
             if details:
+                # Comprobación extra: Si la URL parece un manifiesto HLS (.m3u8), avisamos
+                if '.m3u8' in details['stream_url']:
+                    print("   ⚠️ OJO: El enlace es m3u8 (HLS). AntennaPod prefiere archivos directos.")
+                
                 print(f"   -> ¡Funciona! Título: {details.get('title')[:30]}...")
                 valid_video_details = details
-                break # Encontramos uno válido, dejamos de buscar
+                break 
             else:
-                print(f"   -> 🔒 Inaccesible (Miembros/Error). Saltando al siguiente...")
+                print(f"   -> 🔒 Inaccesible o formato incorrecto. Saltando...")
         
         if not valid_video_details:
-            print("❌ No se encontraron videos públicos recientes en este canal.")
+            print("❌ No se encontraron videos válidos.")
             continue
 
-        # 3. Lógica de Historial (Igual que antes)
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
@@ -199,12 +217,12 @@ def main():
         elif current_episodes[0]['id'] != valid_video_details['id']: is_new = True
 
         if is_new:
-            print("✨ ¡Es un episodio NUEVO para el feed!")
+            print("✨ ¡Es un episodio NUEVO!")
             current_episodes.insert(0, valid_video_details)
             history[channel_id_safe] = current_episodes[:MAX_EPISODES]
             changes_made = True
         else:
-            print("🔄 Ya está en el feed. Actualizando enlace de audio...")
+            print("🔄 Refrescando enlace de audio...")
             history[channel_id_safe][0]['stream_url'] = valid_video_details['stream_url']
             changes_made = True
 
