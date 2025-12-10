@@ -12,7 +12,7 @@ HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
 # Volvemos a una instancia clásica. 
-# Si esta falla, prueba: https://vid.uff.dog o https://yewtu.be
+# Si esta falla, prueba: https://vid.uff.dog o https://yewtu.be o https://inv.nadeko.net
 INVIDIOUS_DOMAIN = "https://yewtu.be"
 # ---------------------
 
