@@ -10,15 +10,17 @@ OUTPUT_DIR = 'feeds'
 CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 10
+
+# Instancia de Invidious a usar (Proxy). 
+# yewtu.be es muy fiable. Si falla, prueba: inv.tux.pizza
+INVIDIOUS_DOMAIN = "https://yewtu.be" 
 # ---------------------
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
         try:
-            with open(HISTORY_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
+            with open(HISTORY_FILE, 'r') as f: return json.load(f)
+        except: return {}
     return {}
 
 def save_history(history):
@@ -33,100 +35,89 @@ def get_channel_identifier(url):
         suffix = "_Directos"
     elif clean_url.endswith('/videos'):
         clean_url = clean_url[:-7]
-    
-    identifier = clean_url.split('/')[-1]
-    identifier = identifier.replace('@', '').replace('channel', '')
+    identifier = clean_url.split('/')[-1].replace('@', '').replace('channel', '')
     return f"{identifier}{suffix}"
 
 def get_candidate_ids(channel_url):
-    """Obtiene los IDs de los últimos 5 videos para probar cuál funciona."""
-    print(f"🔎 Analizando lista de videos en: {channel_url}")
+    """Usa yt-dlp SOLO para obtener IDs (sin cookies)."""
+    print(f"🔎 Analizando canal: {channel_url}")
     command = [
         'yt-dlp',
-        '--flat-playlist',
-        '--playlist-end', '5', # Miramos los últimos 5 por si hay videos de miembros
-        '--print', 'id',
+        '--flat-playlist',     # No descarga nada, solo lee la lista
+        '--playlist-end', '5', # Mira los últimos 5 videos
+        '--print', 'id',       # Solo devuelve los IDs
         '--no-check-certificate',
         '--ignore-errors',
-        '--cookies', 'cookies.txt',
         channel_url
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True)
-        # Devuelve una lista de IDs limpia
-        ids = [line.strip() for line in result.stdout.split('\n') if line.strip()]
-        return ids
-    except Exception as e:
-        print(f"Error buscando IDs: {e}")
+        return [line.strip() for line in result.stdout.split('\n') if line.strip()]
+    except:
         return []
 
-def get_video_details(video_id):
-    """Intenta extraer audio. Si es para miembros, fallará y devolverá None."""
+def get_video_metadata(video_id):
+    """
+    Obtiene título y descripción. 
+    NO intenta sacar el enlace de video de YouTube (eso fallaba).
+    """
     video_url = f"https://www.youtube.com/watch?v={video_id}"
-    
     command = [
         'yt-dlp',
-        '-v',
-        '--no-check-certificate',
-        '--force-ipv4',
-        '--no-cache-dir',
         '--skip-download',
-        '--cookies', 'cookies.txt',
-        '--add-header', 'Referer:https://www.youtube.com/',
-        '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        '-f', 'bestaudio[ext=m4a]/bestaudio/best',
-        '-j',
+        '--no-check-certificate',
+        '--ignore-errors',
+        '--extractor-args', 'youtube:player_client=android', # Truco anti-bot ligero
+        '-j', # Salida JSON
         video_url
     ]
     
     try:
         result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0: return None
         
-        # Si falla (ej. video miembros), yt-dlp devuelve error no-cero
-        if result.returncode != 0:
-            return None
-
+        # Parseo seguro del JSON
         output_lines = result.stdout.strip().split('\n')
         video_data = None
         for line in reversed(output_lines):
             try:
                 temp = json.loads(line)
-                if 'id' in temp and 'url' in temp:
+                if 'id' in temp:
                     video_data = temp
                     break
-            except:
-                continue
+            except: continue
+            
+        if not video_data: return None
+
+        # --- AQUÍ ESTÁ LA MAGIA ---
+        # En lugar de usar la URL de YouTube que caduca y pide cookies,
+        # construimos una URL permanente a través de Invidious.
+        # itag=18 es MP4 360p (Video+Audio). Compatible con todo.
+        proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={video_id}&itag=18"
 
         return {
             'id': video_data.get('id'),
             'title': video_data.get('title'),
-            'description': video_data.get('description'),
+            'description': video_data.get('description') or "Sin descripción",
             'upload_date': video_data.get('upload_date'),
             'duration': video_data.get('duration'),
-            'stream_url': video_data.get('url'),
-            'webpage_url': video_data.get('webpage_url'),
-            'channel_title': video_data.get('uploader')
+            'stream_url': proxy_url, # <--- Usamos el enlace Proxy
+            'webpage_url': f"https://www.youtube.com/watch?v={video_id}",
+            'channel_title': video_data.get('uploader') or "Canal Desconocido"
         }
-
     except:
         return None
 
 def generate_rss_xml(channel_id, episodes):
     if not episodes: return
-
     fg = FeedGenerator()
     fg.load_extension('podcast')
-    
     latest = episodes[0] 
     fg.id(channel_id)
     
-    if channel_id.endswith('_Directos'):
-        podcast_title = f"{latest['channel_title']} (Directos)"
-    else:
-        podcast_title = f"{latest['channel_title']}"
-
-    fg.title(podcast_title)
-    fg.description(f"Podcast generado de: {latest['channel_title']}")
+    suffix = " (Directos)" if channel_id.endswith('_Directos') else ""
+    fg.title(f"{latest['channel_title']}{suffix}")
+    fg.description(f"Feed generado vía Invidious para: {latest['channel_title']}")
     fg.link(href=latest['webpage_url'], rel='alternate')
     fg.language('es')
 
@@ -136,18 +127,18 @@ def generate_rss_xml(channel_id, episodes):
         fe.title(ep['title'])
         fe.link(href=ep['webpage_url'])
         fe.description(ep['description'])
-        
         try:
             if ep.get('upload_date'):
                 date_obj = datetime.strptime(ep['upload_date'], '%Y%m%d')
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
+        # Le decimos a AntennaPod que es Video MP4
         fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
+        
         if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
-    
     filename = f'{channel_id}.xml'
     fg.rss_file(os.path.join(OUTPUT_DIR, filename), pretty=True)
     print(f"✅ Feed generado: {filename}")
@@ -158,7 +149,6 @@ def main():
         return
 
     history = load_history()
-    
     with open(CHANNELS_FILE, 'r') as f:
         channels = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
@@ -166,47 +156,47 @@ def main():
 
     for url in channels:
         print(f"\n--- Procesando Canal ---")
-        time.sleep(5) # Pequeña pausa de cortesía
-        
+        time.sleep(3) # Pequeña pausa
         channel_id_safe = get_channel_identifier(url)
         
-        # 1. Obtener lista de candidatos (últimos 5 videos)
+        # 1. Obtenemos IDs
         candidate_ids = get_candidate_ids(url)
         if not candidate_ids: continue
 
-        # 2. Buscar el primer video que funcione (PÚBLICO)
-        valid_video_details = None
+        # 2. Buscamos el primer video válido (Metadata + Invidious)
+        valid_video = None
         for vid in candidate_ids:
-            print(f"Probando video ID: {vid}...")
-            details = get_video_details(vid)
-            if details:
-                print(f"   -> ¡Funciona! Título: {details.get('title')[:30]}...")
-                valid_video_details = details
-                break # Encontramos uno válido, dejamos de buscar
+            print(f"Procesando ID: {vid}...")
+            # Aquí ya no fallará por cookies porque solo pedimos texto (metadata)
+            details = get_video_metadata(vid)
+            
+            # Si el video es de miembros, yt-dlp suele fallar al sacar metadata
+            # o devolver título null. Si tenemos datos, asumimos que es público.
+            if details and details.get('title'):
+                print(f"   -> OK: {details['title'][:30]}...")
+                valid_video = details
+                break
             else:
-                print(f"   -> 🔒 Inaccesible (Miembros/Error). Saltando al siguiente...")
-        
-        if not valid_video_details:
-            print("❌ No se encontraron videos públicos recientes en este canal.")
-            continue
+                print("   -> Inaccesible/Miembros. Saltando.")
 
-        # 3. Lógica de Historial (Igual que antes)
+        if not valid_video: continue
+
+        # 3. Guardar en historial
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
-        is_new = False
-        if not current_episodes: is_new = True
-        elif current_episodes[0]['id'] != valid_video_details['id']: is_new = True
+        is_new = not current_episodes or current_episodes[0]['id'] != valid_video['id']
 
         if is_new:
-            print("✨ ¡Es un episodio NUEVO para el feed!")
-            current_episodes.insert(0, valid_video_details)
+            print("✨ Nuevo episodio añadido.")
+            current_episodes.insert(0, valid_video)
             history[channel_id_safe] = current_episodes[:MAX_EPISODES]
             changes_made = True
         else:
-            print("🔄 Ya está en el feed. Actualizando enlace de audio...")
-            history[channel_id_safe][0]['stream_url'] = valid_video_details['stream_url']
-            changes_made = True
+            # Aunque no sea nuevo, regeneramos el XML por si borraste el archivo
+            print("🔄 Episodio existente.")
+            # IMPORTANTE: No hace falta refrescar el enlace porque el enlace de Invidious
+            # es PERMANENTE. Nunca caduca.
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
