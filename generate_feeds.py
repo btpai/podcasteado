@@ -11,8 +11,8 @@ CHANNELS_FILE = 'channels.txt'
 HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
-# Usamos una instancia robusta que permita ?local=true
-# Si esta falla (inv.tux.pizza), prueba: https://yewtu.be
+# Instancia Invidious (Proxy Local)
+# Si inv.tux.pizza falla, prueba: https://yewtu.be
 INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
 # ---------------------
 
@@ -39,10 +39,7 @@ def get_channel_identifier(url):
     return f"{identifier}{suffix}"
 
 def get_latest_videos_flat(channel_url):
-    """
-    Obtiene Título e ID del índice del canal (Modo Seguro).
-    Construye URLs de PROXY LOCAL para que AntennaPod no sea bloqueado.
-    """
+    """Obtiene Título e ID del índice del canal (Modo Seguro)."""
     print(f"🔎 Leyendo índice del canal: {channel_url}")
     command = [
         'yt-dlp',
@@ -70,10 +67,7 @@ def get_latest_videos_flat(channel_url):
             if not vid_id or not title or title == '[Private video]':
                 continue
 
-            # --- EL SECRETO DEL ÉXITO ---
-            # 1. itag=18: Pedimos MP4 360p (formato más compatible).
-            # 2. local=true: OBLIGA a Invidious a hacer de proxy. Tu móvil nunca toca Google.
-            # 3. #.mp4: Engaña a AntennaPod para que crea que es un archivo estático.
+            # Proxy URL con local=true para evitar bloqueos
             proxy_url = f"{INVIDIOUS_DOMAIN}/latest_version?id={vid_id}&itag=18&local=true#.mp4"
             
             videos_found.append({
@@ -81,7 +75,7 @@ def get_latest_videos_flat(channel_url):
                 'title': title,
                 'description': "Video proxy vía Invidious.",
                 'upload_date': entry.get('upload_date'),
-                'duration': entry.get('duration'),
+                'duration': entry.get('duration'), # Aquí viene el dato problemático
                 'stream_url': proxy_url,
                 'webpage_url': f"https://www.youtube.com/watch?v={vid_id}",
                 'channel_title': data.get('uploader') or data.get('title') or "Canal"
@@ -118,10 +112,21 @@ def generate_rss_xml(channel_id, episodes):
                 fe.pubDate(date_obj.replace(tzinfo=datetime.now().astimezone().tzinfo))
         except: pass
 
-        # Declaramos explícitamente VIDEO MP4
+        # Enlace VIDEO MP4
         fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
         
-        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
+        # --- CORRECCIÓN DE DURACIÓN ---
+        # Convertimos a entero (segundos) o ignoramos si falla
+        duration_raw = ep.get('duration')
+        if duration_raw:
+            try:
+                # Convertimos a float primero por si viene como "300.0" y luego a int
+                seconds = int(float(duration_raw))
+                fe.podcast.itunes_duration(seconds)
+            except (ValueError, TypeError):
+                # Si el formato es raro, simplemente no ponemos duración
+                pass
+        # ------------------------------
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
     filename = f'{channel_id}.xml'
@@ -144,7 +149,6 @@ def main():
         time.sleep(2)
         channel_id_safe = get_channel_identifier(url)
         
-        # 1. Obtenemos lista (Modo Flat - Seguro)
         latest_videos = get_latest_videos_flat(url)
         
         if not latest_videos:
@@ -153,21 +157,13 @@ def main():
 
         print(f"   -> Encontrados {len(latest_videos)} videos.")
 
-        # 2. Actualizar Historial
         if channel_id_safe not in history: history[channel_id_safe] = []
         current_episodes = history[channel_id_safe]
         
-        # Forzamos actualización si el primer ID es diferente o si queremos refrescar URLs
-        if not current_episodes or current_episodes[0]['id'] != latest_videos[0]['id']:
-            print(f"✨ Actualizando feed con {latest_videos[0]['title']}")
-            history[channel_id_safe] = latest_videos
-            changes_made = True
-        else:
-            # Truco: Aunque sea el mismo episodio, sobreescribimos la URL
-            # por si hemos cambiado el dominio de Invidious en el script.
-            print("🔄 Refrescando URLs de episodios existentes...")
-            history[channel_id_safe] = latest_videos
-            changes_made = True
+        # Forzamos actualización siempre para refrescar este intento
+        print(f"✨ Actualizando feed con {latest_videos[0]['title']}")
+        history[channel_id_safe] = latest_videos
+        changes_made = True
 
         generate_rss_xml(channel_id_safe, history[channel_id_safe])
 
