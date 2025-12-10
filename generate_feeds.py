@@ -61,9 +61,8 @@ def get_candidate_ids(channel_url):
 
 def get_video_details(video_id):
     """
-    Intenta extraer SOLO AUDIO COMPATIBLE (M4A/AAC).
-    Forzamos vcodec=none para que no baje video.
-    Forzamos protocol=https para intentar evitar m3u8 (HLS).
+    ESTRATEGIA BLINDADA: Cookies + Cliente Android.
+    Esto evita que las cookies caduquen al cambiar de IP (GitHub).
     """
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     
@@ -74,16 +73,17 @@ def get_video_details(video_id):
         '--force-ipv4',
         '--no-cache-dir',
         '--skip-download',
-        '--cookies', 'cookies.txt',
-        '--add-header', 'Referer:https://www.youtube.com/',
-        '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         
-        # --- CAMBIO CRÍTICO PARA ANTENNAPOD ---
-        # 1. bestaudio[ext=m4a]: Queremos M4A (AAC) nativo.
-        # 2. [vcodec=none]: ¡PROHIBIDO VIDEO!
-        # 3. [protocol^=http]: Preferimos enlace directo, no m3u8.
+        # 1. USAMOS TUS COOKIES (Ya configuradas en el workflow)
+        '--cookies', 'cookies.txt',
+        
+        # 2. EL TRUCO MAESTRO: NOS DISFRAZAMOS DE APP ANDROID
+        # Las apps móviles no sufren bloqueos por cambio de IP tan agresivos
+        '--extractor-args', 'youtube:player_client=android',
+        # ---------------------------------------------------
+        
+        # 3. FORMATO ANTENNAPOD (Audio puro, sin video, enlace directo)
         '-f', 'bestaudio[ext=m4a][vcodec=none][protocol^=http]/bestaudio[ext=m4a][vcodec=none]/bestaudio',
-        # --------------------------------------
         
         '-j',
         video_url
@@ -106,11 +106,10 @@ def get_video_details(video_id):
             except:
                 continue
 
-        # --- VERIFICACIÓN DE SEGURIDAD ---
-        # Si yt-dlp nos ha traicionado y nos ha dado un video, lo descartamos
+        # Validación extra de seguridad
         if video_data.get('vcodec') != 'none':
-            print(f"⚠️ Aviso: Se detectó video en la respuesta. Intentando filtrar...")
-            # (Aquí confiamos en que el filtro -f funcionó, pero esto es un log por si acaso)
+             # Si se coló un video, intentamos seguir pero avisamos
+             print(f"⚠️ Aviso: Posible pista de video detectada.")
 
         return {
             'id': video_data.get('id'),
