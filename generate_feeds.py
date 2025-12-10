@@ -12,8 +12,8 @@ HISTORY_FILE = 'history.json'
 MAX_EPISODES = 15 
 
 # Instancia para generar el M3U8.
-# Si inv.nadeko.net falla, prueba: https://inv.tux.pizza o https://vid.uff.dog o https://inv.nadeko.net
-INVIDIOUS_DOMAIN = "https://yewtu.be"
+# Si inv.nadeko.net falla, prueba: https://yewtu.be o https://vid.uff.dog o https://inv.nadeko.net
+INVIDIOUS_DOMAIN = "https://inv.tux.pizza"
 # ---------------------
 
 def load_history():
