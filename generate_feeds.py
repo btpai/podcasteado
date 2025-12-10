@@ -137,8 +137,16 @@ def generate_rss_xml(channel_id, episodes):
 
         # Enlace VIDEO MP4 permanente vía Invidious
         fe.enclosure(url=ep['stream_url'], length='0', type='video/mp4')
+
+        duration_raw = ep.get('duration')
+        if duration_raw:
+            try:
+                # Convierte "540.0" (string/float) a 540 (entero)
+                seconds = int(float(duration_raw))
+                fe.podcast.itunes_duration(seconds)
+            except (ValueError, TypeError):
+                pass # Si falla, simplemente no pone la duración, pero no rompe el script
         
-        if ep.get('duration'): fe.podcast.itunes_duration(ep['duration'])
 
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
     filename = f'{channel_id}.xml'
