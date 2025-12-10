@@ -25,12 +25,25 @@ def save_history(history):
         json.dump(history, f, indent=4)
 
 def get_channel_identifier(url):
-    # Intenta limpiar la URL para usarla como nombre de archivo
-    parts = url.split('/')
-    if 'channel' in parts:
-        return parts[parts.index('channel') + 1]
-    return parts[-1].replace('@', '').replace('videos', '')
-
+    """Genera ID del canal y añade '_Directos' si es la pestaña de streams."""
+    # 1. Limpieza básica
+    clean_url = url.strip().rstrip('/')
+    suffix = ""
+    
+    # 2. Detectamos si es /streams o /videos
+    if clean_url.endswith('/streams'):
+        clean_url = clean_url[:-8] # Borra '/streams'
+        suffix = "_Directos"       # Preparamos la etiqueta
+    elif clean_url.endswith('/videos'):
+        clean_url = clean_url[:-7] # Borra '/videos'
+    
+    # 3. Sacamos el ID limpio
+    identifier = clean_url.split('/')[-1]
+    identifier = identifier.replace('@', '').replace('channel', '')
+    
+    # 4. Devolvemos ID + sufijo (Ej: UC12345_Directos)
+    return f"{identifier}{suffix}"
+    
 def get_latest_video_id(channel_url):
     """PASO 1: Obtener solo el ID del video más reciente (Rápido y seguro)."""
     print(f"🔎 Buscando ID del último video en: {channel_url}")
