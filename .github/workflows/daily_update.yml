@@ -25,7 +25,9 @@ jobs:
       - name: Instalar herramientas
         run: |
           python -m pip install --upgrade pip
-          pip install yt-dlp feedgen
+          # Instalar la versión MASTER (desarrollo) de yt-dlp para evitar bloqueos
+          pip install https://github.com/yt-dlp/yt-dlp/archive/master.zip
+          pip install feedgen
 
       - name: Ejecutar script de generación
         run: python generate_feeds.py
