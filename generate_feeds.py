@@ -11,36 +11,61 @@ HISTORY_FILE = 'history.json'
 MAX_EPISODES = 10  # Cuántos episodios mantener en el feed
 # ---------------------
 def get_latest_video_info(channel_url):
-    """Obtiene info del último video usando yt-dlp simulando un navegador."""
-    try:
-        command = [
-            'yt-dlp', 
-            '-v',
-            '--playlist-end', '1', 
-            '--skip-download', 
-            '-f', 'bestaudio[ext=m4a]/bestaudio/best',
-            '-j',
-            # --- NOVEDAD: Falsificar navegador para evitar bloqueo de bots ---
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            # -----------------------------------------------------------------
-            channel_url
-        ]
+    """
+    Versión robusta con argumentos 'safe-mode' para servidores.
+    """
+    print(f"🔍 Procesando: {channel_url}")
+    
+    command = [
+        'yt-dlp',
+        # --- BLOQUE DE SEGURIDAD Y RED ---
+        '-v',                       # Verbose: Para ver qué pasa si falla
+        '--ignore-errors',          # Si hay un error, intenta continuar
+        '--no-check-certificate',   # Evita errores de SSL en servidores antiguos
+        '--force-ipv4',             # Crucial: GitHub Actions a veces falla con IPv6
+        '--no-cache-dir',           # No usar caché para evitar datos corruptos
         
-        # Capturamos stdout y stderr para poder ver el error real si falla
+        # --- BLOQUE DE EXTRACCIÓN ---
+        '--playlist-end', '1',      # Solo el primer video
+        '--skip-download',          # NO descargar el archivo
+        '-f', 'bestaudio/best',     # El mejor audio disponible
+        '-j',                       # Salida en formato JSON
+        
+        # --- LA URL ---
+        channel_url
+    ]
+    
+    try:
+        # Ejecutamos el comando
         result = subprocess.run(command, capture_output=True, text=True)
         
+        # Si falló, imprimimos el error pero no rompemos el script inmediatamente
         if result.returncode != 0:
-            print(f"⚠️ Error en yt-dlp para {channel_url}:")
-            print(f"   Detalle del error: {result.stderr}")
-            return None
+            print(f"⚠️ Alerta: yt-dlp devolvió código {result.returncode}")
+            print(f"   STDERR: {result.stderr[:500]}...") # Primeros 500 caracteres del error
+            # A veces devuelve error pero imprime el JSON igual, intentamos seguir...
 
         # Procesar el JSON
+        # yt-dlp puede imprimir varias líneas de logs antes del JSON.
+        # Buscamos la última línea que parezca un JSON válido.
         output_lines = result.stdout.strip().split('\n')
-        if not output_lines:
-            print(f"⚠️ yt-dlp no devolvió datos para {channel_url}")
+        
+        video_data = None
+        for line in reversed(output_lines):
+            try:
+                temp_data = json.loads(line)
+                # Verificamos que sea un video y tenga URL
+                if 'id' in temp_data and 'url' in temp_data:
+                    video_data = temp_data
+                    break
+            except json.JSONDecodeError:
+                continue
+
+        if not video_data:
+            print(f"❌ No se encontró JSON válido para {channel_url}")
             return None
             
-        video_data = json.loads(output_lines[-1])
+        print(f"✅ Éxito: {video_data.get('title')}")
         
         return {
             'id': video_data.get('id'),
@@ -52,18 +77,11 @@ def get_latest_video_info(channel_url):
             'webpage_url': video_data.get('webpage_url'),
             'channel_title': video_data.get('uploader')
         }
-    except Exception as e:
-        print(f"❌ Error crítico procesando {channel_url}: {e}")
-        return None
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
 
+    except Exception as e:
+        print(f"❌ Error crítico en script Python: {e}")
+        return None
+        
 def save_history(history):
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=4)
